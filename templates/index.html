@@ -22,9 +22,10 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-primary); line-height: 1.5; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 20px; }
-        @media (min-width: 900px) { .container { grid-template-columns: 350px 1fr; } }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-primary); line-height: 1.5; padding: 20px 24px; min-height: 100vh; }
+        .container { width: 100%; max-width: 100%; margin: 0; display: grid; grid-template-columns: 1fr; gap: 24px; }
+        @media (min-width: 900px) { .container { grid-template-columns: 380px 1fr; } }
+        @media (min-width: 1300px) { .container { grid-template-columns: 420px 1fr; } }
         
         .card { background: var(--surface-color); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-color); margin-bottom: 20px; }
         .card-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
@@ -366,6 +367,48 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Crop Tool (Moved to left sidebar below File Details) -->
+        <div class="card tools-section" id="cropCard">
+            <div class="card-title">Crop Video</div>
+            <div class="grid-2" style="margin-bottom: 12px;">
+                <div>
+                    <label>Aspect Ratio</label>
+                    <select id="cropRatio" onchange="applyAspectRatio()">
+                        <option value="free">Free</option>
+                        <option value="1">1:1 (Square)</option>
+                        <option value="1.777777">16:9 (Landscape)</option>
+                        <option value="0.5625">9:16 (Portrait)</option>
+                        <option value="1.333333">4:3</option>
+                        <option value="0.75">3:4</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: flex-end; padding-bottom: 16px;">
+                    <button class="btn btn-outline" onclick="resetCrop()" style="padding: 9px 12px;">Reset Full</button>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <label>X Offset (px)</label>
+                    <input type="number" id="cropX" value="0" min="0" onchange="syncCropFromInputs()">
+                </div>
+                <div>
+                    <label>Y Offset (px)</label>
+                    <input type="number" id="cropY" value="0" min="0" onchange="syncCropFromInputs()">
+                </div>
+                <div>
+                    <label>Width (px)</label>
+                    <input type="number" id="cropW" value="1280" min="1" onchange="syncCropFromInputs()">
+                </div>
+                <div>
+                    <label>Height (px)</label>
+                    <input type="number" id="cropH" value="720" min="1" onchange="syncCropFromInputs()">
+                </div>
+            </div>
+            <button class="btn" id="btnCrop" onclick="processTask('crop')">Crop Video</button>
+            <div id="cropStatus" class="status-box" style="margin-top:12px;"></div>
+            <div id="cropOutputs"></div>
+        </div>
     </div>
 
     <!-- Main Workspace -->
@@ -403,104 +446,60 @@
             </div>
         </div>
 
-        <div class="grid-2">
-            <!-- Split Tool -->
-            <div class="card">
-                <div class="card-title">Split Clips</div>
-                <label for="durations">Sequential Durations (e.g., 10.5, 15, or 00:00:10.500)</label>
-                <textarea id="durations" placeholder="10.5&#10;15.250&#10;30"></textarea>
-                <button class="btn" id="btnSplit" onclick="processTask('split')">Generate Clips</button>
+        <!-- Split Tool (Now acquires full width of right area!) -->
+        <div class="card" id="splitCard">
+            <div class="card-title">Split Clips</div>
+            <label for="durations">Sequential Durations (e.g., 10.5, 15, or 00:00:10.500)</label>
+            <textarea id="durations" placeholder="10.5&#10;15.250&#10;30"></textarea>
+            <button class="btn" id="btnSplit" onclick="processTask('split')">Generate Clips</button>
             <div id="splitStatus" class="status-box" style="margin-top:12px;"></div>
             <div id="splitOutputs"></div>
             
             <!-- Merge Section -->
             <div id="mergeSection" style="display: none; margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 16px;">
-                <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 12px;">Drag and drop the clips above to reorder them, then click merge to combine them.</p>
+                <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 12px;">Drag and drop or use the ▲ / ▼ buttons to reorder clips, then click merge to combine them.</p>
                 <button class="btn btn-success" id="btnMerge" onclick="processMerge()">Merge Clips in Current Sequence</button>
                 <div id="mergeStatus" class="status-box" style="margin-top:12px;"></div>
                 <div id="mergeOutputs"></div>
             </div>
         </div>
 
-        <!-- Crop Tool -->
-            <div class="card">
-                <div class="card-title">Crop Video</div>
-                <div class="grid-2" style="margin-bottom: 12px;">
-                    <div>
-                        <label>Aspect Ratio</label>
-                        <select id="cropRatio" onchange="applyAspectRatio()">
-                            <option value="free">Free</option>
-                            <option value="1">1:1 (Square)</option>
-                            <option value="1.777777">16:9 (Landscape)</option>
-                            <option value="0.5625">9:16 (Portrait)</option>
-                            <option value="1.333333">4:3</option>
-                            <option value="0.75">3:4</option>
-                        </select>
-                    </div>
-                    <div style="display: flex; align-items: flex-end; padding-bottom: 16px;">
-                        <button class="btn btn-outline" onclick="resetCrop()" style="padding: 9px 12px;">Reset Full</button>
-                    </div>
+        <!-- Extract Audio Tool (Full width below Split Tool) -->
+        <div class="card">
+            <div class="card-title">Extract Audio</div>
+            <div class="grid-2">
+                <div>
+                    <label>Format</label>
+                    <select id="audioFormat" onchange="toggleAudioSettings()">
+                        <option value="mp3">MP3</option>
+                        <option value="wav">WAV</option>
+                        <option value="aac">AAC</option>
+                        <option value="m4a">M4A</option>
+                        <option value="flac">FLAC</option>
+                        <option value="ogg">OGG</option>
+                    </select>
                 </div>
-                <div class="grid-2">
-                    <div>
-                        <label>X Offset (px)</label>
-                        <input type="number" id="cropX" value="0" min="0" onchange="syncCropFromInputs()">
-                    </div>
-                    <div>
-                        <label>Y Offset (px)</label>
-                        <input type="number" id="cropY" value="0" min="0" onchange="syncCropFromInputs()">
-                    </div>
-                    <div>
-                        <label>Width (px)</label>
-                        <input type="number" id="cropW" value="1280" min="1" onchange="syncCropFromInputs()">
-                    </div>
-                    <div>
-                        <label>Height (px)</label>
-                        <input type="number" id="cropH" value="720" min="1" onchange="syncCropFromInputs()">
-                    </div>
+                <div id="bitrateContainer">
+                    <label>Bitrate</label>
+                    <select id="audioBitrate">
+                        <option value="64k">64 kbps</option>
+                        <option value="128k">128 kbps</option>
+                        <option value="192k" selected>192 kbps</option>
+                        <option value="256k">256 kbps</option>
+                        <option value="320k">320 kbps</option>
+                    </select>
                 </div>
-                <button class="btn" id="btnCrop" onclick="processTask('crop')">Crop Video</button>
-                <div id="cropStatus" class="status-box" style="margin-top:12px;"></div>
-                <div id="cropOutputs"></div>
+                <div>
+                    <label>Sample Rate</label>
+                    <select id="audioSampleRate">
+                        <option value="44100" selected>44100 Hz</option>
+                        <option value="48000">48000 Hz</option>
+                    </select>
+                </div>
             </div>
-
-            <!-- Extract Audio Tool -->
-            <div class="card" style="grid-column: 1 / -1;">
-                <div class="card-title">Extract Audio</div>
-                <div class="grid-2">
-                    <div>
-                        <label>Format</label>
-                        <select id="audioFormat" onchange="toggleAudioSettings()">
-                            <option value="mp3">MP3</option>
-                            <option value="wav">WAV</option>
-                            <option value="aac">AAC</option>
-                            <option value="m4a">M4A</option>
-                            <option value="flac">FLAC</option>
-                            <option value="ogg">OGG</option>
-                        </select>
-                    </div>
-                    <div id="bitrateContainer">
-                        <label>Bitrate</label>
-                        <select id="audioBitrate">
-                            <option value="64k">64 kbps</option>
-                            <option value="128k">128 kbps</option>
-                            <option value="192k" selected>192 kbps</option>
-                            <option value="256k">256 kbps</option>
-                            <option value="320k">320 kbps</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Sample Rate</label>
-                        <select id="audioSampleRate">
-                            <option value="44100" selected>44100 Hz</option>
-                            <option value="48000">48000 Hz</option>
-                        </select>
-                    </div>
-                </div>
-                <button class="btn" id="btnAudio" onclick="processTask('extract-audio')">Extract Audio</button>
-                <div id="audioStatus" class="status-box" style="margin-top:12px;"></div>
-                <div id="audioOutputs"></div>
-            </div>
+            <button class="btn" id="btnAudio" onclick="processTask('extract-audio')">Extract Audio</button>
+            <div id="audioStatus" class="status-box" style="margin-top:12px;"></div>
+            <div id="audioOutputs"></div>
         </div>
     </div>
 </div>
