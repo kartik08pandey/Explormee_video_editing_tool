@@ -1,0 +1,23 @@
+# Virtual environments
+video/
+venv/
+env/
+.venv/
+ENV/
+
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Video processing outputs and user media
+outputs/*
+!outputs/.gitkeep
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
