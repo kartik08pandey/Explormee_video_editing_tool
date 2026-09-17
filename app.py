@@ -5,6 +5,7 @@ import uuid
 import shutil
 import zipfile
 import subprocess
+import time
 from datetime import timedelta
 from flask import Flask, request, jsonify, render_template, send_file, send_from_directory
 from werkzeug.utils import secure_filename
@@ -145,14 +146,22 @@ def serve_media(session_id, filename):
     session_id = secure_filename(session_id)
     filename = secure_filename(filename)
     directory = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
-    return send_from_directory(directory, filename)
+    response = send_from_directory(directory, filename)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/download/<session_id>/<filename>')
 def download_file(session_id, filename):
     session_id = secure_filename(session_id)
     filename = secure_filename(filename)
     directory = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
-    return send_from_directory(directory, filename, as_attachment=True)
+    response = send_from_directory(directory, filename, as_attachment=True)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/download-zip/<session_id>')
 def download_zip(session_id):
@@ -194,6 +203,7 @@ def split_video():
         return jsonify({'error': 'Source file not found'}), 404
         
     output_files = []
+    clip_details = []
     current_start = 0.0
     
     for i, dur in enumerate(durations):
@@ -214,11 +224,18 @@ def split_video():
         try:
             subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
             output_files.append(out_name)
+            clip_details.append({
+                'filename': out_name,
+                'index': i + 1,
+                'duration': dur,
+                'duration_formatted': f"{dur:.2f}s",
+                'start_time': current_start
+            })
             current_start += dur
         except subprocess.CalledProcessError as e:
             return jsonify({'error': f"FFmpeg failed on clip {i+1}. Error snippet: {e.stderr.decode()[-200:]}"}), 500
             
-    return jsonify({'message': 'Success', 'files': output_files})
+    return jsonify({'message': 'Success', 'files': output_files, 'clip_details': clip_details})
 
 @app.route('/merge', methods=['POST'])
 def merge_clips():
@@ -247,7 +264,7 @@ def merge_clips():
         for sf in secure_files:
             f.write(f"file '{sf}'\n")
             
-    out_name = "merged_video.mp4"
+    out_name = f"merged_{int(time.time())}.mp4"
     out_path = os.path.join(session_dir, out_name)
     
     # Use concat demuxer which safely joins identical stream formats instantly without re-encoding
@@ -262,7 +279,8 @@ def merge_clips():
     
     try:
         subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-        return jsonify({'message': 'Success', 'file': out_name})
+        meta = get_video_metadata(out_path)
+        return jsonify({'message': 'Success', 'file': out_name, 'metadata': meta})
     except subprocess.CalledProcessError as e:
         return jsonify({'error': f"Merging failed. Error: {e.stderr.decode()[-200:]}"}), 500
 
