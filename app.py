@@ -149,7 +149,7 @@ def parse_clip_segments(duration_text):
                 'duration': dur,
                 'start_formatted': format_timestamp(start_sec),
                 'end_formatted': format_timestamp(end_sec),
-                'range_label': f"{format_timestamp(start_sec)} → {format_timestamp(end_sec)}"
+                'range_label': f"{format_timestamp(start_sec)} -> {format_timestamp(end_sec)}"
             })
             current_chain_start = end_sec
         else:
@@ -168,7 +168,7 @@ def parse_clip_segments(duration_text):
                 'duration': dur,
                 'start_formatted': format_timestamp(start_sec),
                 'end_formatted': format_timestamp(end_sec),
-                'range_label': f"{format_timestamp(start_sec)} → {format_timestamp(end_sec)}"
+                'range_label': f"{format_timestamp(start_sec)} -> {format_timestamp(end_sec)}"
             })
             current_chain_start = end_sec
 
@@ -461,4 +461,4 @@ if __name__ == '__main__':
     print("Open http://localhost:5000 in your web browser.")
     print("-----------------------------------\n")
     
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=True)
