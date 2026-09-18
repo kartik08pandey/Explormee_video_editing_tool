@@ -246,17 +246,18 @@
         .merged-video-wrapper {
             position: relative;
             width: 100%;
-            max-width: 740px;
-            max-height: 416px;
-            aspect-ratio: 16/9;
+            max-width: 320px;
+            max-height: 540px;
+            aspect-ratio: 9/16;
             background: #000;
-            border-radius: var(--radius-md);
+            border-radius: 16px;
+            border: 3px solid #334155;
             overflow: hidden;
-            margin: 10px auto;
+            margin: 14px auto;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
         }
         .merged-video-wrapper video {
             width: 100%;
@@ -2227,7 +2228,7 @@
         
         const mergeSection = document.getElementById('mergeSection');
         if (mergeSection) mergeSection.style.display = 'block';
-        showStatus('mergeStatus', 'info', `Merging ${filesInOrder.length} clip(s), cropping to 1920×540, and stacking halves into 960×1080...`);
+        showStatus('mergeStatus', 'info', `Merging ${filesInOrder.length} clip(s), stacking halves, and padding with dark bars into 1080×1920 (9:16)...`);
         
         try {
             const res = await fetch('/merge', {
@@ -2246,7 +2247,7 @@
             const durInfo = meta && meta.duration_formatted ? ` (Duration: ${meta.duration_formatted})` : '';
             const statusEl = document.getElementById('mergeStatus');
             statusEl.className = 'status-box status-success';
-            statusEl.innerHTML = `✅ Successfully merged and stacked ${filesInOrder.length} clip(s) into <strong>${data.file}</strong> (960×1080)${durInfo}! Preview the video below or click Download.`;
+            statusEl.innerHTML = `✅ Successfully merged and stacked ${filesInOrder.length} clip(s) into <strong>${data.file}</strong> (1080×1920, standard 9:16 vertical)${durInfo}! Preview the video below or click Download.`;
             statusEl.style.display = 'block';
 
             // 2. Show & configure top header download button

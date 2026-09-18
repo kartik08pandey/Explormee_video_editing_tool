@@ -508,12 +508,14 @@ def merge_clips():
     # 1. Scale/crop video to 1920x540
     # 2. Cut in middle into two equal 960x540 halves: Left (x=0..960), Right (x=960..1920)
     # 3. Stack vertically: Right half on top, Left half on bottom -> 960x1080
+    # 4. Scale to 1080 width (1080x1216) and pad to 1080x1920 (standard 9:16) with dark top and bottom padding
     filter_complex = (
         "[0:v]scale=w=1920:h=540:force_original_aspect_ratio=increase,"
         "crop=1920:540,split=2[left_full][right_full];"
         "[left_full]crop=960:540:0:0[left];"
         "[right_full]crop=960:540:960:0[right];"
-        "[right][left]vstack=inputs=2[outv]"
+        "[right][left]vstack=inputs=2[stacked];"
+        "[stacked]scale=1080:1216:flags=lanczos,pad=1080:1920:0:352:color=black,setsar=1[outv]"
     )
     
     cmd = [
