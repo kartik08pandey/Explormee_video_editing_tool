@@ -71,14 +71,14 @@ fi
 
 # 5. Launch Video Editor & Auto-Open Browser
 echo "[4/4] Starting Video Editor Server..."
-echo "Opening http://localhost:5000 in your web browser..."
+echo "Opening http://127.0.0.1:5050 in your web browser..."
 echo ""
 echo "Press Ctrl+C in this Terminal window anytime to stop the editor."
 echo "======================================================="
 echo ""
 
 # Open default browser after 2 seconds
-(sleep 2 && open "http://localhost:5000") &
+(sleep 2 && open "http://127.0.0.1:5050") &
 
 # Start Flask
 python3 app.py

@@ -638,7 +638,9 @@ if __name__ == '__main__':
         print("FFmpeg verification passed.")
         
     print(f"Output directory initialized at: {app.config['UPLOAD_FOLDER']}")
-    print("Open http://localhost:5000 in your web browser.")
+    port = int(os.environ.get('PORT', 5050))
+    print(f"Server running at: http://127.0.0.1:{port}")
+    print(f"Open http://127.0.0.1:{port} in your web browser.")
     print("-----------------------------------\n")
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=True)

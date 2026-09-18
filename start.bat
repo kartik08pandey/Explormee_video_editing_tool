@@ -59,14 +59,14 @@ if exist "%~dp0python_portable\python.exe" (
 :: 4. Launch Video Editor & Auto-Open Browser
 echo.
 echo [2/2] Starting Video Editor Server...
-echo Opening http://localhost:5000 in your web browser...
+echo Opening http://127.0.0.1:5050 in your web browser...
 echo.
 echo Press Ctrl+C in this window anytime to stop the editor.
 echo =======================================================
 echo.
 
 :: Launch the browser after 2 seconds
-start "" cmd /c "timeout /t 2 /nobreak >nul & start http://localhost:5000"
+start "" cmd /c "timeout /t 2 /nobreak >nul & start http://127.0.0.1:5050"
 
 :: Run the application
 "%PY_CMD%" app.py
