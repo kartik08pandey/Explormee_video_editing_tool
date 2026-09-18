@@ -455,6 +455,131 @@
             color: white;
         }
 
+        /* Timeline Clip Trimming Handles & Live Visuals */
+        .clip-trim-handle {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 12px;
+            cursor: ew-resize;
+            z-index: 15;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            opacity: 0.55;
+            transition: opacity 0.15s ease, background-color 0.15s ease;
+        }
+        .clip-trim-handle::after {
+            content: '';
+            width: 3px;
+            height: 28px;
+            background: #64748b;
+            border-radius: 3px;
+            transition: background 0.15s ease, height 0.15s ease, box-shadow 0.15s ease;
+        }
+        .clip-trim-handle:hover,
+        .clip-trim-handle.active-trimming {
+            opacity: 1;
+            background: rgba(56, 189, 248, 0.25);
+        }
+        .clip-trim-handle:hover::after,
+        .clip-trim-handle.active-trimming::after {
+            background: #38bdf8;
+            height: 48px;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.9);
+        }
+        .clip-trim-handle.trim-left {
+            left: 0;
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+        .clip-trim-handle.trim-right {
+            right: 0;
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+
+        .timeline-clip-card.is-trimming {
+            border-color: #38bdf8 !important;
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.4) !important;
+            cursor: ew-resize !important;
+        }
+
+        /* Floating Live Trimming HUD Tooltip */
+        #timelineTrimTooltip {
+            position: fixed;
+            display: none;
+            z-index: 99999;
+            pointer-events: none;
+            transform: translate(-50%, -100%);
+            margin-top: -14px;
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(8px);
+            border: 1px solid #38bdf8;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 0 12px rgba(56, 189, 248, 0.35);
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+            font-size: 0.78rem;
+            color: #f8fafc;
+            white-space: nowrap;
+            line-height: 1.4;
+            animation: fadeIn 0.1s ease-out;
+        }
+        #timelineTrimTooltip .trim-tip-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #38bdf8;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        #timelineTrimTooltip .trim-tip-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+        #timelineTrimTooltip .trim-tip-dur {
+            color: #4ade80;
+            font-weight: 700;
+        }
+
+        /* Card Re-trim Loading Overlay */
+        .clip-card-trim-loading {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(3px);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            z-index: 25;
+            font-size: 0.78rem;
+            color: #38bdf8;
+            font-weight: 600;
+            animation: fadeIn 0.15s ease-out;
+        }
+        .trim-spinner {
+            width: 22px;
+            height: 22px;
+            border: 2.5px solid rgba(56, 189, 248, 0.2);
+            border-top-color: #38bdf8;
+            border-radius: 50%;
+            animation: trimSpin 0.7s linear infinite;
+        }
+        @keyframes trimSpin {
+            to { transform: rotate(360deg); }
+        }
+
         /* Modal Review Dialog */
         .modal-backdrop {
             position: fixed;
@@ -1174,6 +1299,10 @@
     let draggedTimelineCard = null;
 
     document.getElementById('splitOutputs').addEventListener('dragstart', (e) => {
+        if (e.target.classList.contains('clip-trim-handle') || isTrimmingActive) {
+            e.preventDefault();
+            return false;
+        }
         const card = e.target.closest('.timeline-clip-card');
         if (card) {
             draggedTimelineCard = card;
@@ -1192,7 +1321,7 @@
 
     document.getElementById('splitOutputs').addEventListener('dragover', (e) => {
         e.preventDefault();
-        if (!draggedTimelineCard) return;
+        if (!draggedTimelineCard || isTrimmingActive) return;
         const track = document.getElementById('timelineTrack');
         if (!track) return;
         
@@ -1268,6 +1397,307 @@
             }
         });
         return ordered;
+    }
+
+    /* --- Timeline Clip Interactive Trimming Engine --- */
+    let isTrimmingActive = false;
+    let activeTrim = null;
+
+    function formatTimeSec(seconds) {
+        if (isNaN(seconds) || seconds < 0) seconds = 0;
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = (seconds % 60).toFixed(2);
+        const padS = s.padStart(5, '0');
+        if (h > 0) {
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${padS}`;
+        } else {
+            return `${m.toString().padStart(2, '0')}:${padS}`;
+        }
+    }
+
+    function handleTrimHandleMouseDown(e, handleSide) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const card = e.target.closest('.timeline-clip-card');
+        if (!card || !currentSession) return;
+
+        const filename = card.getAttribute('data-filename');
+        let startSec = parseFloat(card.getAttribute('data-start'));
+        let endSec = parseFloat(card.getAttribute('data-end'));
+
+        if (isNaN(startSec)) startSec = 0;
+        if (isNaN(endSec) || endSec <= startSec) {
+            const found = currentClips.find(c => c.filename === filename);
+            if (found && found.duration) {
+                endSec = startSec + found.duration;
+            } else {
+                endSec = startSec + 5.0;
+            }
+        }
+
+        const sourceTotalDur = (videoMeta && videoMeta.duration) ? videoMeta.duration : 999999;
+        const initialWidth = card.offsetWidth;
+
+        isTrimmingActive = true;
+        card.setAttribute('draggable', 'false');
+        card.classList.add('is-trimming');
+        e.target.classList.add('active-trimming');
+
+        // Point video player to original source video so scrubbing covers full duration
+        if (currentFilename && (!videoPlayer.src || !videoPlayer.src.includes(currentFilename))) {
+            videoPlayer.src = `/media/${currentSession}/${currentFilename}`;
+            videoPlayer.load();
+        }
+
+        // Pause video so user has precision frame scrubbing
+        if (videoPlayer && !videoPlayer.paused) {
+            videoPlayer.pause();
+        }
+
+        const initialScrub = handleSide === 'left' ? startSec : endSec;
+        if (videoPlayer && Number.isFinite(initialScrub)) {
+            try { videoPlayer.currentTime = initialScrub; } catch (err) {}
+        }
+
+        activeTrim = {
+            card: card,
+            handleSide: handleSide,
+            handleEl: e.target,
+            filename: filename,
+            idx: card.getAttribute('data-index'),
+            startX: e.clientX,
+            origStart: startSec,
+            origEnd: endSec,
+            currentStart: startSec,
+            currentEnd: endSec,
+            origWidth: initialWidth,
+            sourceTotalDur: sourceTotalDur,
+            pxPerSec: 15 // 15 pixels = 1 second for smooth precision
+        };
+
+        updateTrimTooltip(e.clientX, e.clientY, startSec, endSec, handleSide);
+    }
+
+    function updateTrimTooltip(x, y, startSec, endSec, handleSide) {
+        const tip = document.getElementById('timelineTrimTooltip');
+        if (!tip) return;
+        const dur = Math.max(0.5, endSec - startSec);
+        
+        tip.innerHTML = `
+            <div class="trim-tip-title">
+                <span>✂️</span>
+                <span>Trimming ${handleSide === 'left' ? 'Start (In-point)' : 'End (Out-point)'}</span>
+            </div>
+            <div class="trim-tip-meta">
+                <span><strong>In:</strong> ${formatTimeSec(startSec)}</span>
+                <span><strong>Out:</strong> ${formatTimeSec(endSec)}</span>
+            </div>
+            <div style="margin-top: 3px; font-size: 0.75rem;">
+                Duration: <span class="trim-tip-dur">${dur.toFixed(2)}s</span>
+            </div>
+        `;
+        tip.style.left = `${x}px`;
+        tip.style.top = `${y}px`;
+        tip.style.display = 'block';
+    }
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isTrimmingActive || !activeTrim) return;
+
+        const dx = e.clientX - activeTrim.startX;
+        const dt = dx / activeTrim.pxPerSec;
+
+        let newStart = activeTrim.origStart;
+        let newEnd = activeTrim.origEnd;
+
+        if (activeTrim.handleSide === 'left') {
+            // Drag left (dx < 0) decreases start time -> starts earlier -> clip grows
+            // Drag right (dx > 0) increases start time -> starts later -> clip shrinks
+            newStart = activeTrim.origStart + dt;
+            newStart = Math.max(0, Math.min(newStart, activeTrim.origEnd - 0.5));
+        } else {
+            // Drag right (dx > 0) increases end time -> ends later -> clip grows
+            // Drag left (dx < 0) decreases end time -> ends earlier -> clip shrinks
+            newEnd = activeTrim.origEnd + dt;
+            newEnd = Math.max(activeTrim.origStart + 0.5, Math.min(newEnd, activeTrim.sourceTotalDur));
+        }
+
+        activeTrim.currentStart = newStart;
+        activeTrim.currentEnd = newEnd;
+
+        // 1. Live scrubbing in player
+        const scrubTime = activeTrim.handleSide === 'left' ? newStart : newEnd;
+        if (videoPlayer && Number.isFinite(scrubTime)) {
+            try { videoPlayer.currentTime = scrubTime; } catch (err) {}
+        }
+
+        // 2. Live tooltip HUD
+        updateTrimTooltip(e.clientX, e.clientY, newStart, newEnd, activeTrim.handleSide);
+
+        // 3. Live feedback on timeline card badges
+        const dur = newEnd - newStart;
+        const durBadge = activeTrim.card.querySelector('.clip-duration-badge');
+        if (durBadge) durBadge.innerText = `⏱ ${dur.toFixed(2)}s`;
+
+        const rangeBadge = activeTrim.card.querySelector('.clip-range-badge');
+        if (rangeBadge) {
+            rangeBadge.innerText = `📍 ${formatTimeSec(newStart)} -> ${formatTimeSec(newEnd)}`;
+            rangeBadge.style.display = 'block';
+        }
+
+        // 4. Dynamically adjust card width to visually reflect growth/shrink
+        const durDelta = dur - (activeTrim.origEnd - activeTrim.origStart);
+        const dynamicWidth = Math.max(180, Math.min(520, activeTrim.origWidth + (durDelta * activeTrim.pxPerSec)));
+        activeTrim.card.style.width = `${dynamicWidth}px`;
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        if (!isTrimmingActive || !activeTrim) return;
+
+        const tip = document.getElementById('timelineTrimTooltip');
+        if (tip) tip.style.display = 'none';
+
+        const { card, handleEl, filename, currentStart, currentEnd, origStart, origEnd, origWidth } = activeTrim;
+        
+        card.setAttribute('draggable', 'true');
+        card.classList.remove('is-trimming');
+        if (handleEl) handleEl.classList.remove('active-trimming');
+
+        isTrimmingActive = false;
+        activeTrim = null;
+
+        const diffStart = Math.abs(currentStart - origStart);
+        const diffEnd = Math.abs(currentEnd - origEnd);
+
+        // If changed by more than 0.05s, send trim request to backend
+        if (diffStart > 0.05 || diffEnd > 0.05) {
+            executeTrimClip(card, filename, currentStart, currentEnd, origStart, origEnd, origWidth);
+        } else {
+            card.style.width = `${origWidth}px`;
+        }
+    });
+
+    async function executeTrimClip(card, filename, newStart, newEnd, origStart, origEnd, origWidth) {
+        if (!currentSession || !currentFilename) return;
+
+        // Add loading spinner overlay on card
+        let loadingOverlay = card.querySelector('.clip-card-trim-loading');
+        if (!loadingOverlay) {
+            loadingOverlay = document.createElement('div');
+            loadingOverlay.className = 'clip-card-trim-loading';
+            loadingOverlay.innerHTML = `
+                <div class="trim-spinner"></div>
+                <span>✂️ Trimming clip...</span>
+            `;
+            card.appendChild(loadingOverlay);
+        }
+
+        showStatus('splitStatus', 'info', `Trimming "${filename}" (${formatTimeSec(newStart)} -> ${formatTimeSec(newEnd)})...`);
+
+        try {
+            const res = await fetch('/trim-clip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: currentSession,
+                    filename: filename,
+                    source_filename: currentFilename,
+                    start_time: newStart,
+                    end_time: newEnd
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Trimming failed');
+
+            if (loadingOverlay) loadingOverlay.remove();
+
+            // 1. Update card attributes
+            card.setAttribute('data-start', data.start_time);
+            card.setAttribute('data-end', data.end_time);
+
+            // 2. Update card badges
+            const durBadge = card.querySelector('.clip-duration-badge');
+            if (durBadge) durBadge.innerText = `⏱ ${data.duration_formatted}`;
+
+            const rangeBadge = card.querySelector('.clip-range-badge');
+            if (rangeBadge) {
+                rangeBadge.innerText = `📍 ${data.range_label}`;
+                rangeBadge.style.display = 'block';
+            }
+
+            // 3. Update in-memory currentClips and sequenceClips array
+            if (currentClips && Array.isArray(currentClips)) {
+                const clipObj = currentClips.find(c => c.filename === filename);
+                if (clipObj) {
+                    clipObj.start_time = data.start_time;
+                    clipObj.end_time = data.end_time;
+                    clipObj.duration = data.duration;
+                    clipObj.duration_formatted = data.duration_formatted;
+                    clipObj.start_formatted = data.start_formatted;
+                    clipObj.end_formatted = data.end_formatted;
+                    clipObj.range_label = data.range_label;
+                }
+            }
+            if (sequenceClips && Array.isArray(sequenceClips)) {
+                const seqObj = sequenceClips.find(c => c.filename === filename);
+                if (seqObj) {
+                    seqObj.start_time = data.start_time;
+                    seqObj.end_time = data.end_time;
+                    seqObj.duration = data.duration;
+                    seqObj.duration_formatted = data.duration_formatted;
+                    seqObj.start_formatted = data.start_formatted;
+                    seqObj.end_formatted = data.end_formatted;
+                    seqObj.range_label = data.range_label;
+                }
+            }
+
+            // 4. Recalculate total duration in timeline header
+            updateTimelineTotalDuration();
+
+            // 5. If main player is currently playing this solo clip, reload with cache buster
+            if (videoPlayer.src && videoPlayer.src.includes(filename)) {
+                videoPlayer.src = `/media/${currentSession}/${filename}?t=${Date.now()}`;
+                videoPlayer.load();
+            }
+
+            showStatus('splitStatus', 'success', `✂️ Clip "${filename}" trimmed to ${data.duration_formatted} (${data.range_label})!`);
+
+        } catch (err) {
+            if (loadingOverlay) loadingOverlay.remove();
+            
+            // Revert DOM to original values
+            card.setAttribute('data-start', origStart);
+            card.setAttribute('data-end', origEnd);
+            card.style.width = `${origWidth}px`;
+            
+            const origDur = origEnd - origStart;
+            const durBadge = card.querySelector('.clip-duration-badge');
+            if (durBadge) durBadge.innerText = `⏱ ${origDur.toFixed(2)}s`;
+
+            const rangeBadge = card.querySelector('.clip-range-badge');
+            if (rangeBadge) {
+                rangeBadge.innerText = `📍 ${formatTimeSec(origStart)} -> ${formatTimeSec(origEnd)}`;
+            }
+
+            showStatus('splitStatus', 'error', `Trimming failed: ${err.message}`);
+        }
+    }
+
+    function updateTimelineTotalDuration() {
+        if (!currentClips || currentClips.length === 0) return;
+        const totalSec = currentClips.reduce((sum, cl) => sum + (cl.duration || 0), 0);
+        const th = Math.floor(totalSec / 3600);
+        const tm = Math.floor((totalSec % 3600) / 60);
+        const ts = (totalSec % 60).toFixed(1);
+        const totalFormatted = th > 0 ? `${th}h ${tm}m ${ts}s` : `${tm}m ${ts}s`;
+
+        const totalEl = document.getElementById('timelineTotalDuration');
+        if (totalEl) {
+            totalEl.innerText = totalFormatted;
+        }
     }
 
     /* --- Sequential Autoplay Engine --- */
@@ -1898,7 +2328,7 @@
                     <div class="timeline-top-bar">
                         <div class="timeline-meta-info">
                             <span style="font-size:1.15rem;">🎞</span>
-                            <span><strong>${data.files.length} Clips Generated</strong> &bull; Total: <span style="font-family:monospace; color:var(--accent-color); font-weight:600;">${totalFormatted}</span></span>
+                            <span><strong>${data.files.length} Clips Generated</strong> &bull; Total: <span id="timelineTotalDuration" style="font-family:monospace; color:var(--accent-color); font-weight:600;">${totalFormatted}</span></span>
                         </div>
                         <div class="timeline-actions">
                             <button id="btnPlaySequence" class="btn btn-sequence-play btn-sm" onclick="togglePlaySequence()">
@@ -1919,7 +2349,7 @@
                         </div>
                     </div>
                     <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-                        <span>💡 Drag clips horizontally or click <strong>◀ / ▶</strong> to change playback & merge sequence.</span>
+                        <span>💡 <strong>Drag left/right clip edges</strong> to trim duration with live scrubbing &bull; Drag cards or click <strong>◀ / ▶</strong> to change sequence.</span>
                         <span style="font-size: 0.75rem; color: #94a3b8;">Scroll horizontally ↔ to see all clips</span>
                     </div>
                     <div class="timeline-track-wrapper" id="timelineTrackWrapper">
@@ -1930,14 +2360,18 @@
                     const durBadge = detail.duration_formatted ? detail.duration_formatted : `${detail.duration || 0}s`;
                     const isFirst = (idx === 0);
                     const isLast = (idx === data.files.length - 1);
+                    const startVal = detail.start_time !== undefined ? detail.start_time : 0;
+                    const endVal = detail.end_time !== undefined ? detail.end_time : (detail.duration || 0);
 
                     timelineHtml += `
-                        <div class="timeline-clip-card" draggable="true" data-filename="${f}" data-index="${idx}">
+                        <div class="timeline-clip-card" draggable="true" data-filename="${f}" data-index="${idx}" data-start="${startVal}" data-end="${endVal}">
+                            <div class="clip-trim-handle trim-left" title="Drag to trim start (pull left to extend, right to shorten)" onmousedown="handleTrimHandleMouseDown(event, 'left')"></div>
+                            <div class="clip-trim-handle trim-right" title="Drag to trim end (pull right to extend, left to shorten)" onmousedown="handleTrimHandleMouseDown(event, 'right')"></div>
                             <div class="clip-card-header">
                                 <span class="clip-index-badge">#${idx + 1}</span>
-                                <span class="clip-duration-badge">⏱ ${durBadge}</span>
+                                <span class="clip-duration-badge" id="clip-dur-${idx}">⏱ ${durBadge}</span>
                             </div>
-                            ${detail.range_label ? `<div style="font-size:0.71rem; font-weight:600; font-family:monospace; color:#1d4ed8; background:#eff6ff; padding:2px 6px; border-radius:4px; margin:4px 0 2px 0; border:1px solid #bfdbfe; text-align:center;">📍 ${detail.range_label}</div>` : ''}
+                            <div class="clip-range-badge" id="clip-range-${idx}" style="font-size:0.71rem; font-weight:600; font-family:monospace; color:#1d4ed8; background:#eff6ff; padding:2px 6px; border-radius:4px; margin:4px 0 2px 0; border:1px solid #bfdbfe; text-align:center; ${detail.range_label ? '' : 'display:none;'}">📍 ${detail.range_label || ''}</div>
                             <div class="clip-card-body">
                                 <div class="clip-card-name-row" id="clip-name-display-${idx}" style="display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 4px;">
                                     <div class="clip-card-name" id="clip-name-text-${idx}" title="${f}" style="cursor: pointer; font-weight: 500; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" onclick="startRenameClip('${f}', ${idx})">📹 ${f}</div>
@@ -2064,5 +2498,9 @@
         </div>
     </div>
 </div>
+
+<!-- Floating Timeline Live Trimming Tooltip -->
+<div id="timelineTrimTooltip"></div>
+
 </body>
 </html>

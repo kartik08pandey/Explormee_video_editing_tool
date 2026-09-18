@@ -376,6 +376,105 @@ def rename_clip():
     except Exception as e:
         return jsonify({'error': f'Renaming failed: {str(e)}'}), 500
 
+@app.route('/trim-clip', methods=['POST'])
+def trim_clip():
+    data = request.json
+    session_id = secure_filename(data.get('session_id', ''))
+    filename = secure_filename(data.get('filename', ''))
+    source_filename = secure_filename(data.get('source_filename', ''))
+
+    try:
+        start_time = float(data.get('start_time', 0.0))
+        end_time = float(data.get('end_time', 0.0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid start_time or end_time'}), 400
+
+    if start_time < 0:
+        return jsonify({'error': 'Start time must be non-negative'}), 400
+    if end_time <= start_time:
+        return jsonify({'error': 'End time must be greater than start time'}), 400
+    if (end_time - start_time) < 0.5:
+        return jsonify({'error': 'Clip duration must be at least 0.5 seconds'}), 400
+
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
+    if not os.path.exists(session_dir):
+        return jsonify({'error': 'Session not found'}), 404
+
+    clip_path = os.path.join(session_dir, filename)
+    source_path = os.path.join(session_dir, source_filename)
+
+    if not os.path.exists(source_path):
+        return jsonify({'error': f'Original source video "{source_filename}" not found'}), 404
+
+    try:
+        source_meta = get_video_metadata(source_path)
+        if source_meta and 'duration' in source_meta:
+            source_dur = source_meta['duration']
+            if end_time > source_dur + 0.05:
+                end_time = source_dur
+    except Exception:
+        pass
+
+    duration = end_time - start_time
+    if duration < 0.5:
+        return jsonify({'error': 'Clip duration must be at least 0.5 seconds'}), 400
+
+    temp_filename = f"trim_tmp_{uuid.uuid4().hex[:8]}.mp4"
+    temp_path = os.path.join(session_dir, temp_filename)
+
+    cmd = [
+        'ffmpeg', '-y',
+        '-ss', str(start_time),
+        '-i', source_path,
+        '-t', str(duration),
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+        '-c:a', 'aac', '-b:a', '192k',
+        '-avoid_negative_ts', 'make_zero',
+        '-pix_fmt', 'yuv420p',
+        temp_path
+    ]
+
+    try:
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    except subprocess.CalledProcessError as e:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+        return jsonify({'error': f"FFmpeg trimming failed: {e.stderr.decode()[-200:]}"}), 500
+
+    try:
+        os.replace(temp_path, clip_path)
+    except Exception as e:
+        try:
+            time.sleep(0.1)
+            os.replace(temp_path, clip_path)
+        except Exception as e2:
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+            return jsonify({'error': f'Failed to update clip file: {str(e2)}'}), 500
+
+    dur = round(duration, 2)
+    start_formatted = format_timestamp(start_time)
+    end_formatted = format_timestamp(end_time)
+    range_label = f"{start_formatted} -> {end_formatted}"
+
+    return jsonify({
+        'message': 'Success',
+        'filename': filename,
+        'start_time': round(start_time, 2),
+        'end_time': round(end_time, 2),
+        'duration': dur,
+        'duration_formatted': f"{dur:.2f}s",
+        'start_formatted': start_formatted,
+        'end_formatted': end_formatted,
+        'range_label': range_label
+    })
+
 @app.route('/merge', methods=['POST'])
 def merge_clips():
     data = request.json
