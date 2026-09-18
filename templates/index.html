@@ -209,6 +209,220 @@
             object-fit: contain;
         }
 
+        /* --- Interactive Horizontal Timeline Styles --- */
+        .timeline-container {
+            margin-top: 18px;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+        }
+        .timeline-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .timeline-meta-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.92rem;
+            color: var(--text-primary);
+        }
+        .timeline-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn-sequence-play {
+            background: #3b82f6;
+            color: white;
+            font-weight: 600;
+            padding: 6px 14px;
+        }
+        .btn-sequence-play:hover {
+            background: #2563eb;
+        }
+        .btn-sequence-play.playing {
+            background: #f59e0b;
+            color: white;
+        }
+        .btn-sequence-play.playing:hover {
+            background: #d97706;
+        }
+        .btn-merge-download {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            font-weight: 600;
+            padding: 6px 14px;
+            box-shadow: 0 2px 5px rgba(16, 185, 129, 0.25);
+        }
+        .btn-merge-download:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+        .timeline-track-wrapper {
+            position: relative;
+            width: 100%;
+            overflow-x: auto;
+            padding: 12px 6px 16px 6px;
+            background: #0f172a;
+            border-radius: var(--radius-md);
+            border: 1px solid #334155;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+        }
+        .timeline-track-wrapper::-webkit-scrollbar {
+            height: 8px;
+        }
+        .timeline-track-wrapper::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        .timeline-track-wrapper::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        .timeline-track-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .timeline-track {
+            display: flex;
+            gap: 12px;
+            min-width: max-content;
+            align-items: stretch;
+            padding: 4px 2px;
+        }
+        .timeline-clip-card {
+            width: 230px;
+            background: #1e293b;
+            color: #f8fafc;
+            border: 2px solid #334155;
+            border-radius: 10px;
+            padding: 12px;
+            position: relative;
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .timeline-clip-card:active {
+            cursor: grabbing;
+        }
+        .timeline-clip-card.dragging {
+            opacity: 0.4;
+            border-style: dashed;
+            border-color: #38bdf8;
+            background: #0f172a;
+        }
+        .timeline-clip-card.active-playing {
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.4);
+            background: #1e293b;
+            transform: translateY(-2px);
+        }
+        .clip-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .clip-index-badge {
+            background: #3b82f6;
+            color: white;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+        }
+        .clip-duration-badge {
+            background: #334155;
+            color: #94a3b8;
+            font-size: 0.72rem;
+            font-family: monospace;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .clip-card-body {
+            margin-bottom: 10px;
+        }
+        .clip-card-name {
+            font-size: 0.82rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #e2e8f0;
+            margin-bottom: 6px;
+        }
+        .clip-progress-container {
+            width: 100%;
+            height: 4px;
+            background: #334155;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .clip-progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #38bdf8;
+            transition: width 0.1s linear;
+        }
+        .clip-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
+            margin-top: 6px;
+            border-top: 1px solid #334155;
+            padding-top: 8px;
+        }
+        .clip-nav-btn {
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            padding: 3px 8px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .clip-nav-btn:hover:not(:disabled) {
+            background: #334155;
+            color: white;
+        }
+        .clip-nav-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+        .clip-card-actions {
+            display: flex;
+            gap: 4px;
+        }
+        .clip-action-btn {
+            background: #334155;
+            color: #f1f5f9;
+            border: none;
+            padding: 4px 7px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            transition: background 0.15s;
+        }
+        .clip-action-btn:hover {
+            background: #475569;
+            color: white;
+        }
+
         /* Modal Review Dialog */
         .modal-backdrop {
             position: fixed;
@@ -345,30 +559,29 @@
             <p>Powered by Python & FFmpeg</p>
         </div>
 
-        <div class="card" id="uploadCard">
-            <div class="card-title">1. Upload Video</div>
-            <div class="upload-area" id="dropZone">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-secondary); margin-bottom:12px;">
+        <div style="margin-bottom: 20px;">
+            <input type="file" id="fileInput" accept=".mp4,.mov,.avi,.mkv,.webm,.mpeg,.mpg" style="display: none;">
+            <button class="btn" id="btnImport" style="padding: 12px 18px; font-size: 0.95rem; font-weight: 600;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                 </svg>
-                <p>Drag & drop video here<br><span style="font-size:0.8rem; color:var(--text-secondary)">or click to browse</span></p>
-                <input type="file" id="fileInput" accept=".mp4,.mov,.avi,.mkv,.webm,.mpeg,.mpg">
-            </div>
-            <div id="uploadStatus" class="status-box" style="margin-top:16px;"></div>
+                Import Video
+            </button>
+            <div id="uploadStatus" class="status-box" style="margin-top: 12px;"></div>
         </div>
 
-        <div class="card tools-section" id="metaCard">
-            <div class="card-title">File Details</div>
-            <table class="meta-table" id="metaTable">
-                <tbody>
-                    <!-- Injected via JS -->
-                </tbody>
-            </table>
+        <!-- Generate Clips Input & Button -->
+        <div class="card tools-section" id="splitInputCard">
+            <div class="card-title">Generate Clips</div>
+            <label for="durations">Sequential Durations (e.g., 10.5, 15, or 00:00:10.500)</label>
+            <textarea id="durations" placeholder="10.5&#10;15.250&#10;30"></textarea>
+            <button class="btn" id="btnSplit" onclick="processTask('split')">Generate Clips</button>
+            <div id="splitStatus" class="status-box" style="margin-top:12px;"></div>
         </div>
 
-        <!-- Crop Tool (Moved to left sidebar below File Details) -->
+        <!-- Crop Tool -->
         <div class="card tools-section" id="cropCard">
             <div class="card-title">Crop Video</div>
             <div class="grid-2" style="margin-bottom: 12px;">
@@ -409,11 +622,21 @@
             <div id="cropStatus" class="status-box" style="margin-top:12px;"></div>
             <div id="cropOutputs"></div>
         </div>
+
+        <!-- File Details -->
+        <div class="card tools-section" id="metaCard">
+            <div class="card-title">File Details</div>
+            <table class="meta-table" id="metaTable">
+                <tbody>
+                    <!-- Injected via JS -->
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Main Workspace -->
     <div class="workspace tools-section" id="workspace">
-        <div class="card">
+        <div class="card" id="workspaceCard">
             <!-- Active Video Banner -->
             <div id="activeVideoBanner" class="active-video-banner" style="display: none;">
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -444,23 +667,13 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Split Tool (Now acquires full width of right area!) -->
-        <div class="card" id="splitCard">
-            <div class="card-title">Split Clips</div>
-            <label for="durations">Sequential Durations (e.g., 10.5, 15, or 00:00:10.500)</label>
-            <textarea id="durations" placeholder="10.5&#10;15.250&#10;30"></textarea>
-            <button class="btn" id="btnSplit" onclick="processTask('split')">Generate Clips</button>
-            <div id="splitStatus" class="status-box" style="margin-top:12px;"></div>
+            <!-- Timeline & Output Container (Positioned directly under main video player) -->
             <div id="splitOutputs"></div>
             
-            <!-- Merge Section -->
-            <div id="mergeSection" style="display: none; margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 16px;">
-                <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 12px;">Drag and drop or use the ▲ / ▼ buttons to reorder clips, then click merge to combine them.</p>
-                <button class="btn btn-success" id="btnMerge" onclick="processMerge()">Merge Clips in Current Sequence</button>
-                <div id="mergeStatus" class="status-box" style="margin-top:12px;"></div>
-                <div id="mergeOutputs"></div>
+            <!-- Merged Output Notification Section -->
+            <div id="mergeSection" style="display: none; margin-top: 14px;">
+                <div id="mergeStatus" class="status-box"></div>
             </div>
         </div>
 
@@ -509,19 +722,21 @@
     let currentFilename = null;
     let videoMeta = null;
 
-    const dropZone = document.getElementById('dropZone');
+    const btnImport = document.getElementById('btnImport');
     const fileInput = document.getElementById('fileInput');
     const videoPlayer = document.getElementById('videoPlayer');
 
-    // UI event listeners for drag and drop
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files[0]);
-    });
+    // UI event listeners for Import Video button
+    if (btnImport) {
+        btnImport.addEventListener('click', () => fileInput.click());
+        btnImport.addEventListener('dragover', (e) => { e.preventDefault(); btnImport.style.opacity = '0.8'; });
+        btnImport.addEventListener('dragleave', () => { btnImport.style.opacity = '1'; });
+        btnImport.addEventListener('drop', (e) => {
+            e.preventDefault();
+            btnImport.style.opacity = '1';
+            if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files[0]);
+        });
+    }
     fileInput.addEventListener('change', (e) => {
         if (e.target.files.length) handleUpload(e.target.files[0]);
     });
@@ -571,6 +786,18 @@
                 <tr><th>Size</th><td>${data.metadata.size_formatted}</td></tr>
             `;
             
+            // Reset timeline and split/merge outputs
+            isPlayingSequence = false;
+            activeTimelineIndex = -1;
+            currentClips = [];
+            sequenceClips = [];
+            const splitOutputs = document.getElementById('splitOutputs');
+            if (splitOutputs) splitOutputs.innerHTML = '';
+            const mergeSection = document.getElementById('mergeSection');
+            if (mergeSection) mergeSection.style.display = 'none';
+            const banner = document.getElementById('activeVideoBanner');
+            if (banner) banner.style.display = 'none';
+
             // Show workspace & load video
             document.querySelectorAll('.tools-section').forEach(el => el.style.display = 'block');
             document.getElementById('videoTimeOverlay').style.display = 'block';
@@ -838,45 +1065,45 @@
     }
     requestAnimationFrame(updateTimeOverlay);
 
-    /* --- Drag and Drop Logic for Merging --- */
-    let draggedItem = null;
+    /* --- Drag and Drop & Reordering Logic for Timeline --- */
+    let draggedTimelineCard = null;
 
     document.getElementById('splitOutputs').addEventListener('dragstart', (e) => {
-        const item = e.target.closest('.draggable-item');
-        if (item) {
-            draggedItem = item;
-            // Delay adding class so the drag image doesn't look transparent
-            requestAnimationFrame(() => item.classList.add('dragging'));
+        const card = e.target.closest('.timeline-clip-card');
+        if (card) {
+            draggedTimelineCard = card;
+            requestAnimationFrame(() => card.classList.add('dragging'));
         }
     });
 
     document.getElementById('splitOutputs').addEventListener('dragend', (e) => {
-        const item = e.target.closest('.draggable-item');
-        if (item) {
-            item.classList.remove('dragging');
-            draggedItem = null;
+        const card = e.target.closest('.timeline-clip-card');
+        if (card) {
+            card.classList.remove('dragging');
+            draggedTimelineCard = null;
+            updateTimelineIndices();
         }
     });
 
     document.getElementById('splitOutputs').addEventListener('dragover', (e) => {
-        e.preventDefault(); // allow drop
-        if (!draggedItem) return;
-        const container = document.getElementById('sortableClipList');
-        if (!container) return;
+        e.preventDefault();
+        if (!draggedTimelineCard) return;
+        const track = document.getElementById('timelineTrack');
+        if (!track) return;
         
-        const afterElement = getDragAfterElement(container, e.clientY);
+        const afterElement = getTimelineDragAfterElement(track, e.clientX);
         if (afterElement == null) {
-            container.appendChild(draggedItem);
+            track.appendChild(draggedTimelineCard);
         } else {
-            container.insertBefore(draggedItem, afterElement);
+            track.insertBefore(draggedTimelineCard, afterElement);
         }
     });
 
-    function getDragAfterElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.draggable-item:not(.dragging)')];
+    function getTimelineDragAfterElement(container, x) {
+        const draggableElements = [...container.querySelectorAll('.timeline-clip-card:not(.dragging)')];
         return draggableElements.reduce((closest, child) => {
             const box = child.getBoundingClientRect();
-            const offset = y - box.top - box.height / 2; // middle of the child element
+            const offset = x - box.left - box.width / 2;
             if (offset < 0 && offset > closest.offset) {
                 return { offset: offset, element: child };
             } else {
@@ -885,31 +1112,227 @@
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
-    /* --- Playback & Review Logic for Clips & Merged Videos --- */
-    let currentClips = [];
-    let activeClipIndex = 0;
+    function shiftTimelineClip(btn, direction) {
+        const card = btn.closest('.timeline-clip-card');
+        if (!card) return;
+        const track = document.getElementById('timelineTrack');
+        if (!track) return;
+        
+        if (direction === -1 && card.previousElementSibling) {
+            track.insertBefore(card, card.previousElementSibling);
+        } else if (direction === 1 && card.nextElementSibling) {
+            track.insertBefore(card.nextElementSibling, card);
+        }
+        updateTimelineIndices();
+    }
 
-    function getOrderedClips() {
-        const list = document.getElementById('sortableClipList');
-        if (!list) return currentClips;
-        const items = list.querySelectorAll('.draggable-item');
-        if (items.length === 0) return currentClips;
+    function updateTimelineIndices() {
+        const track = document.getElementById('timelineTrack');
+        if (!track) return;
+        const cards = [...track.querySelectorAll('.timeline-clip-card')];
+        cards.forEach((card, idx) => {
+            card.setAttribute('data-index', idx);
+            const badge = card.querySelector('.clip-index-badge');
+            if (badge) badge.innerText = `#${idx + 1}`;
+            
+            const leftBtn = card.querySelector('.btn-shift-left');
+            const rightBtn = card.querySelector('.btn-shift-right');
+            if (leftBtn) leftBtn.disabled = (idx === 0);
+            if (rightBtn) rightBtn.disabled = (idx === cards.length - 1);
+        });
+        
+        if (isPlayingSequence) {
+            sequenceClips = getTimelineClipsOrder();
+        }
+    }
+
+    function getTimelineClipsOrder() {
+        const track = document.getElementById('timelineTrack');
+        if (!track) return currentClips;
+        const cards = track.querySelectorAll('.timeline-clip-card');
+        if (cards.length === 0) return currentClips;
         
         const ordered = [];
-        items.forEach((item, i) => {
-            const fn = item.getAttribute('data-filename');
+        cards.forEach((card, i) => {
+            const fn = card.getAttribute('data-filename');
             const found = currentClips.find(c => c.filename === fn);
             if (found) {
-                ordered.push({ ...found, displayOrder: i });
+                ordered.push({ ...found, timelineIndex: i });
             } else {
-                ordered.push({ filename: fn, index: i + 1, duration_formatted: '', displayOrder: i });
+                ordered.push({ filename: fn, index: i + 1, timelineIndex: i, duration_formatted: '', duration: 0 });
             }
         });
         return ordered;
     }
 
+    /* --- Sequential Autoplay Engine --- */
+    let currentClips = [];
+    let activeClipIndex = 0;
+    let isPlayingSequence = false;
+    let sequenceClips = [];
+    let activeTimelineIndex = -1;
+
+    function togglePlaySequence() {
+        if (isPlayingSequence) {
+            pauseSequencePlayback();
+        } else {
+            startSequencePlayback();
+        }
+    }
+
+    function startSequencePlayback() {
+        sequenceClips = getTimelineClipsOrder();
+        if (!sequenceClips || sequenceClips.length === 0) return;
+        
+        isPlayingSequence = true;
+        updateSequencePlayButton();
+        
+        // If index is valid, resume from it; otherwise start from the beginning
+        let startIndex = activeTimelineIndex;
+        if (startIndex < 0 || startIndex >= sequenceClips.length) {
+            startIndex = 0;
+        }
+        
+        playClipInSequence(startIndex);
+    }
+
+    function pauseSequencePlayback() {
+        isPlayingSequence = false;
+        updateSequencePlayButton();
+        if (videoPlayer) {
+            videoPlayer.pause();
+        }
+    }
+
+    function restartSequence() {
+        sequenceClips = getTimelineClipsOrder();
+        if (!sequenceClips || sequenceClips.length === 0) return;
+        
+        // Reset all progress bars
+        const track = document.getElementById('timelineTrack');
+        if (track) {
+            track.querySelectorAll('.clip-progress-bar').forEach(b => b.style.width = '0%');
+        }
+        
+        isPlayingSequence = true;
+        updateSequencePlayButton();
+        playClipInSequence(0);
+    }
+
+    function playClipInSequence(index) {
+        if (!isPlayingSequence) return;
+        sequenceClips = getTimelineClipsOrder();
+        
+        if (index >= sequenceClips.length) {
+            // Sequence completed!
+            isPlayingSequence = false;
+            updateSequencePlayButton();
+            activeTimelineIndex = -1;
+            highlightTimelineCard(-1);
+            showStatus('splitStatus', 'success', 'Sequence playback complete! Click "⚡ Merge & Download Sequence" to export.');
+            return;
+        }
+        
+        activeTimelineIndex = index;
+        const clip = sequenceClips[index];
+        
+        highlightTimelineCard(index);
+        
+        if (!currentSession) return;
+        
+        // Hide crop overlay while playing clips
+        const cropEditor = document.getElementById('cropEditor');
+        if (cropEditor) cropEditor.style.display = 'none';
+        
+        const banner = document.getElementById('activeVideoBanner');
+        const title = document.getElementById('activeVideoTitle');
+        title.innerHTML = `<strong>Playing Sequence:</strong> Clip #${index + 1} of ${sequenceClips.length} (${clip.filename})`;
+        banner.style.display = 'flex';
+        
+        videoPlayer.src = `/media/${currentSession}/${clip.filename}?t=${Date.now()}`;
+        videoPlayer.load();
+        videoPlayer.play().catch(() => {});
+    }
+
+    function highlightTimelineCard(index) {
+        const track = document.getElementById('timelineTrack');
+        if (!track) return;
+        const cards = track.querySelectorAll('.timeline-clip-card');
+        cards.forEach((card, i) => {
+            const prog = card.querySelector('.clip-progress-bar');
+            if (i === index) {
+                card.classList.add('active-playing');
+                card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                if (prog) prog.style.width = '0%';
+            } else {
+                card.classList.remove('active-playing');
+                if (i < index && prog) {
+                    prog.style.width = '100%';
+                } else if (i > index && prog) {
+                    prog.style.width = '0%';
+                }
+            }
+        });
+    }
+
+    function updateSequencePlayButton() {
+        const btn = document.getElementById('btnPlaySequence');
+        if (!btn) return;
+        if (isPlayingSequence) {
+            btn.innerHTML = `⏸ Pause Sequence`;
+            btn.classList.add('playing');
+        } else {
+            btn.innerHTML = `▶ Play Sequence`;
+            btn.classList.remove('playing');
+        }
+    }
+
+    function playSoloClip(filename, index) {
+        pauseSequencePlayback();
+        activeTimelineIndex = index;
+        highlightTimelineCard(index);
+        loadIntoMainPlayer(filename, `Clip #${index + 1} (${filename})`);
+    }
+
+    // Video Player sequence listeners
+    videoPlayer.addEventListener('ended', () => {
+        if (isPlayingSequence) {
+            const track = document.getElementById('timelineTrack');
+            if (track && activeTimelineIndex >= 0) {
+                const cards = track.querySelectorAll('.timeline-clip-card');
+                if (cards[activeTimelineIndex]) {
+                    const bar = cards[activeTimelineIndex].querySelector('.clip-progress-bar');
+                    if (bar) bar.style.width = '100%';
+                }
+            }
+            playClipInSequence(activeTimelineIndex + 1);
+        }
+    });
+
+    videoPlayer.addEventListener('timeupdate', () => {
+        if (isPlayingSequence && activeTimelineIndex >= 0 && videoPlayer.duration > 0) {
+            const pct = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+            const track = document.getElementById('timelineTrack');
+            if (track) {
+                const cards = track.querySelectorAll('.timeline-clip-card');
+                if (cards[activeTimelineIndex]) {
+                    const bar = cards[activeTimelineIndex].querySelector('.clip-progress-bar');
+                    if (bar) bar.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+                }
+            }
+        }
+    });
+
+    videoPlayer.addEventListener('pause', () => {
+        if (isPlayingSequence && videoPlayer.currentTime < (videoPlayer.duration - 0.15)) {
+            isPlayingSequence = false;
+            updateSequencePlayButton();
+        }
+    });
+
+    /* --- Modal Review Dialog Logic --- */
     function openClipReview(index) {
-        currentClips = getOrderedClips();
+        currentClips = getTimelineClipsOrder();
         if (!currentClips || currentClips.length === 0) return;
         
         activeClipIndex = Math.max(0, Math.min(index, currentClips.length - 1));
@@ -920,7 +1343,7 @@
     }
 
     function openClipReviewByFilename(filename) {
-        currentClips = getOrderedClips();
+        currentClips = getTimelineClipsOrder();
         const idx = currentClips.findIndex(c => c.filename === filename);
         if (idx !== -1) {
             openClipReview(idx);
@@ -960,7 +1383,7 @@
     }
 
     function navigateClip(delta) {
-        currentClips = getOrderedClips();
+        currentClips = getTimelineClipsOrder();
         const target = activeClipIndex + delta;
         if (target >= 0 && target < currentClips.length) {
             activeClipIndex = target;
@@ -991,23 +1414,10 @@
         closeClipReview();
     }
 
-    function moveClipItem(btn, direction) {
-        const item = btn.closest('.draggable-item');
-        if (!item) return;
-        const container = document.getElementById('sortableClipList');
-        if (!container) return;
-        
-        if (direction === -1 && item.previousElementSibling && item.previousElementSibling.classList.contains('draggable-item')) {
-            container.insertBefore(item, item.previousElementSibling);
-        } else if (direction === 1 && item.nextElementSibling && item.nextElementSibling.classList.contains('draggable-item')) {
-            container.insertBefore(item.nextElementSibling, item);
-        }
-    }
-
     function loadIntoMainPlayer(filename, label) {
         if (!currentSession) return;
         
-        // Hide crop overlay while reviewing video so it doesn't obstruct view
+        // Hide crop overlay while previewing clips
         const cropEditor = document.getElementById('cropEditor');
         if (cropEditor) cropEditor.style.display = 'none';
         
@@ -1021,12 +1431,15 @@
         videoPlayer.load();
         videoPlayer.play().catch(() => {});
         
-        // Smoothly bring the main video container into view
         document.getElementById('videoContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     function restoreOriginalVideo() {
         if (!currentSession || !currentFilename) return;
+        
+        pauseSequencePlayback();
+        activeTimelineIndex = -1;
+        highlightTimelineCard(-1);
         
         const banner = document.getElementById('activeVideoBanner');
         banner.style.display = 'none';
@@ -1034,7 +1447,6 @@
         videoPlayer.src = `/media/${currentSession}/${currentFilename}`;
         videoPlayer.load();
         
-        // Restore crop overlay if metadata exists
         if (videoMeta) {
             renderCropOverlay();
         }
@@ -1058,23 +1470,28 @@
         }
     });
 
-    async function processMerge() {
+    /* --- 1-Click Merge & Download Engine --- */
+    async function mergeAndDownload() {
         if (!currentSession) return;
-        const list = document.getElementById('sortableClipList');
-        if (!list) return;
+        const track = document.getElementById('timelineTrack');
+        if (!track) return;
         
-        const items = list.querySelectorAll('.draggable-item');
-        const filesInOrder = Array.from(items).map(item => item.getAttribute('data-filename'));
+        const cards = track.querySelectorAll('.timeline-clip-card');
+        const filesInOrder = Array.from(cards).map(c => c.getAttribute('data-filename'));
         
         if (filesInOrder.length < 2) {
-            showStatus('mergeStatus', 'error', 'Need at least 2 clips to merge.');
+            showStatus('mergeStatus', 'error', 'Need at least 2 clips on the timeline to merge.');
             return;
         }
         
-        const btn = document.getElementById('btnMerge');
-        btn.disabled = true;
-        showStatus('mergeStatus', 'info', 'Merging clips in the selected order...');
-        document.getElementById('mergeOutputs').innerHTML = '';
+        const btn = document.getElementById('btnMergeDownload');
+        const origText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `⏳ Merging & Downloading...`;
+        }
+        
+        showStatus('mergeStatus', 'info', `Merging ${filesInOrder.length} clips in timeline sequence and preparing download...`);
         
         try {
             const res = await fetch('/merge', {
@@ -1085,53 +1502,37 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Merge failed');
             
-            showStatus('mergeStatus', 'success', 'Clips merged successfully! You can review and play the merged video below:');
-            
-            const meta = data.metadata;
-            const metaBadges = meta ? `
-                <span class="meta-badge">⏱ ${meta.duration_formatted}</span>
-                <span class="meta-badge">📐 ${meta.width}x${meta.height}</span>
-                <span class="meta-badge">💾 ${meta.size_formatted}</span>
-            ` : '';
-            
-            const videoUrl = `/media/${currentSession}/${data.file}?t=${Date.now()}`;
+            // 1. Auto-trigger browser download
             const downloadUrl = `/download/${currentSession}/${data.file}`;
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = data.file;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
             
-            document.getElementById('mergeOutputs').innerHTML = `
-                <div class="merged-preview-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
-                        <span style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">🎬 ${data.file}</span>
-                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">${metaBadges}</div>
-                    </div>
-                    <div class="merged-video-wrapper">
-                        <video id="mergedVideoPlayer" src="${videoUrl}" controls playsinline preload="auto"></video>
-                    </div>
-                    <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-                        <a href="${downloadUrl}" class="btn btn-success" style="flex: 2; min-width: 180px; text-decoration: none;" download>
-                            ⬇ Download Merged Video
-                        </a>
-                        <button class="btn btn-outline" style="flex: 1; min-width: 150px;" onclick="loadIntoMainPlayer('${data.file}', 'Merged Video (${data.file})')">
-                            Load in Workspace
-                        </button>
-                    </div>
-                </div>`;
+            // 2. Display clean confirmation with download again link
+            const meta = data.metadata;
+            const durInfo = meta && meta.duration_formatted ? ` (Duration: ${meta.duration_formatted})` : '';
+            const statusEl = document.getElementById('mergeStatus');
+            statusEl.className = 'status-box status-success';
+            statusEl.innerHTML = `✅ Successfully merged ${filesInOrder.length} clips into <strong>${data.file}</strong>${durInfo}! Your download has started automatically. <a href="${downloadUrl}" download style="color: #065f46; font-weight: 600; text-decoration: underline; margin-left: 8px;">Download again</a>`;
+            statusEl.style.display = 'block';
             
-            const mvp = document.getElementById('mergedVideoPlayer');
-            if (mvp) {
-                mvp.load();
-                mvp.play().catch(() => {});
-            }
         } catch (err) {
             showStatus('mergeStatus', 'error', err.message);
         } finally {
-            btn.disabled = false;
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
         }
     }
 
+    /* --- Task Processing Engine (Split, Crop, Audio) --- */
     async function processTask(taskName) {
         if (!currentSession) return;
         
-        // Define endpoints and button IDs mapping
         const config = {
             'split': { btn: 'btnSplit', status: 'splitStatus', outputs: 'splitOutputs', getBody: () => ({ durations: document.getElementById('durations').value }) },
             'crop': { btn: 'btnCrop', status: 'cropStatus', outputs: 'cropOutputs', getBody: () => ({ 
@@ -1174,89 +1575,119 @@
                         duration: 0
                     }));
                 }
-            }
-            
-            // Render outputs
-            let html = `<ul class="output-list" ${taskName === 'split' ? 'id="sortableClipList"' : ''}>`;
-            if (data.files && Array.isArray(data.files)) {
+                
+                // Calculate total duration for timeline header
+                const totalSec = currentClips.reduce((sum, cl) => sum + (cl.duration || 0), 0);
+                const th = Math.floor(totalSec / 3600);
+                const tm = Math.floor((totalSec % 3600) / 60);
+                const ts = (totalSec % 60).toFixed(1);
+                const totalFormatted = th > 0 ? `${th}h ${tm}m ${ts}s` : `${tm}m ${ts}s`;
+
+                let timelineHtml = `
+                <div class="timeline-container" id="timelineContainer">
+                    <div class="timeline-top-bar">
+                        <div class="timeline-meta-info">
+                            <span style="font-size:1.15rem;">🎞</span>
+                            <span><strong>${data.files.length} Clips Generated</strong> &bull; Total: <span style="font-family:monospace; color:var(--accent-color); font-weight:600;">${totalFormatted}</span></span>
+                        </div>
+                        <div class="timeline-actions">
+                            <button id="btnPlaySequence" class="btn btn-sequence-play btn-sm" onclick="togglePlaySequence()">
+                                ▶ Play Sequence
+                            </button>
+                            <button id="btnRestartSequence" class="btn btn-outline btn-sm" onclick="restartSequence()">
+                                ⏮ Restart
+                            </button>
+                            <button id="btnMergeDownload" class="btn btn-merge-download btn-sm" onclick="mergeAndDownload()">
+                                ⚡ Merge & Download Sequence
+                            </button>
+                            <a href="/download-zip/${currentSession}" class="btn btn-outline btn-sm" download style="text-decoration:none;">
+                                📦 Download ZIP
+                            </a>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                        <span>💡 Drag clips horizontally or click <strong>◀ / ▶</strong> to change playback & merge sequence.</span>
+                        <span style="font-size: 0.75rem; color: #94a3b8;">Scroll horizontally ↔ to see all clips</span>
+                    </div>
+                    <div class="timeline-track-wrapper" id="timelineTrackWrapper">
+                        <div class="timeline-track" id="timelineTrack">`;
+
                 data.files.forEach((f, idx) => {
-                    const dragAttr = taskName === 'split' ? `draggable="true" class="output-item draggable-item" data-filename="${f}"` : `class="output-item"`;
-                    const dragHandle = taskName === 'split' ? `<span class="drag-handle" title="Drag to reorder clips">☰</span>` : '';
-                    const moveButtons = taskName === 'split' ? `
-                        <div style="display: inline-flex; flex-direction: column; gap: 1px; margin-right: 4px;">
-                            <button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.65rem; line-height: 1; width: auto; border-radius: 3px;" onclick="moveClipItem(this, -1)" title="Move up">▲</button>
-                            <button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.65rem; line-height: 1; width: auto; border-radius: 3px;" onclick="moveClipItem(this, 1)" title="Move down">▼</button>
-                        </div>` : '';
-                    
-                    let actionsHtml = '';
-                    if (taskName === 'split') {
-                        const detail = currentClips.find(c => c.filename === f) || {};
-                        const durBadge = detail.duration_formatted ? `<span class="badge-pill">${detail.duration_formatted}</span>` : '';
-                        
-                        actionsHtml = `
-                            <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                                ${durBadge}
-                                <button class="btn btn-sm btn-play" onclick="openClipReviewByFilename('${f}')" title="Play & review clip in modal">
-                                    ▶ Play
-                                </button>
-                                <button class="btn btn-sm btn-outline" onclick="loadIntoMainPlayer('${f}', 'Clip #${idx+1} (${f})')" title="Load clip in main workspace player">
-                                    Workspace
-                                </button>
-                                <a href="/download/${currentSession}/${f}" class="btn btn-sm btn-outline" style="padding: 5px 8px; text-decoration: none;" download title="Download clip">
-                                    ⬇
-                                </a>
-                            </div>`;
-                    } else {
-                        actionsHtml = `
-                            <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                                <button class="btn btn-sm btn-outline" onclick="loadIntoMainPlayer('${f}', '${f}')">
-                                    ▶ Play
-                                </button>
-                                <a href="/download/${currentSession}/${f}" class="btn btn-outline btn-sm" style="width:auto; padding:5px 8px" download>Download</a>
-                            </div>`;
-                    }
-                    
-                    html += `
-                        <li ${dragAttr}>
-                            <div style="display:flex; align-items:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; gap:6px;">
-                                ${dragHandle}
-                                ${moveButtons}
-                                <span style="font-weight: 500;">${f}</span>
+                    const detail = currentClips.find(cl => cl.filename === f) || {};
+                    const durBadge = detail.duration_formatted ? detail.duration_formatted : `${detail.duration || 0}s`;
+                    const isFirst = (idx === 0);
+                    const isLast = (idx === data.files.length - 1);
+
+                    timelineHtml += `
+                        <div class="timeline-clip-card" draggable="true" data-filename="${f}" data-index="${idx}">
+                            <div class="clip-card-header">
+                                <span class="clip-index-badge">#${idx + 1}</span>
+                                <span class="clip-duration-badge">⏱ ${durBadge}</span>
                             </div>
-                            ${actionsHtml}
+                            <div class="clip-card-body">
+                                <div class="clip-card-name" title="${f}">📹 ${f}</div>
+                                <div class="clip-progress-container">
+                                    <div class="clip-progress-bar" id="clip-prog-${idx}"></div>
+                                </div>
+                            </div>
+                            <div class="clip-card-footer">
+                                <div style="display: flex; gap: 2px;">
+                                    <button class="clip-nav-btn btn-shift-left" onclick="shiftTimelineClip(this, -1)" ${isFirst ? 'disabled' : ''} title="Shift Left / Earlier">◀</button>
+                                    <button class="clip-nav-btn btn-shift-right" onclick="shiftTimelineClip(this, 1)" ${isLast ? 'disabled' : ''} title="Shift Right / Later">▶</button>
+                                </div>
+                                <div class="clip-card-actions">
+                                    <button class="clip-action-btn" onclick="playSoloClip('${f}', ${idx})" title="Play solo in workspace player">▶ Play</button>
+                                    <button class="clip-action-btn" onclick="openClipReviewByFilename('${f}')" title="Inspect frame-by-frame in modal">🔍 Review</button>
+                                    <a href="/download/${currentSession}/${f}" class="clip-action-btn" download title="Download this clip">⬇</a>
+                                </div>
+                            </div>
+                        </div>`;
+                });
+
+                timelineHtml += `
+                        </div>
+                    </div>
+                </div>`;
+
+                document.getElementById(c.outputs).innerHTML = timelineHtml;
+
+                const mergeSection = document.getElementById('mergeSection');
+                if (mergeSection) {
+                    mergeSection.style.display = 'block';
+                    document.getElementById('mergeStatus').style.display = 'none';
+                }
+
+                isPlayingSequence = false;
+                activeTimelineIndex = -1;
+                updateSequencePlayButton();
+
+            } else if (data.files && Array.isArray(data.files)) {
+                let html = `<ul class="output-list">`;
+                data.files.forEach((f) => {
+                    html += `
+                        <li class="output-item">
+                            <span style="font-weight: 500;">${f}</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <button class="btn btn-sm btn-outline" onclick="loadIntoMainPlayer('${f}', '${f}')">▶ Play</button>
+                                <a href="/download/${currentSession}/${f}" class="btn btn-outline btn-sm" style="width:auto; padding:5px 8px" download>Download</a>
+                            </div>
                         </li>`;
                 });
+                html += '</ul>';
+                document.getElementById(c.outputs).innerHTML = html;
             } else if (data.file) {
-                html += `
-                    <li class="output-item">
-                        <span style="font-weight: 500;">${data.file}</span>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            ${taskName !== 'extract-audio' ? `
-                            <button class="btn btn-sm btn-outline" onclick="loadIntoMainPlayer('${data.file}', '${data.file}')">
-                                ▶ Play
-                            </button>` : ''}
-                            <a href="/download/${currentSession}/${data.file}" class="btn btn-outline btn-sm" style="width:auto; padding:5px 8px" download>Download</a>
-                        </div>
-                    </li>`;
-            }
-            html += '</ul>';
-            
-            if (taskName === 'split' && data.files && data.files.length > 1) {
-                html += `
-                    <div style="margin-top: 10px;">
-                        <a href="/download-zip/${currentSession}" class="btn btn-success" style="width:100%; text-decoration: none;">Download All (ZIP)</a>
-                    </div>`;
-            }
-            document.getElementById(c.outputs).innerHTML = html;
-            
-            if (taskName === 'split') {
-                const mergeSection = document.getElementById('mergeSection');
-                if (data.files && data.files.length > 1) {
-                    mergeSection.style.display = 'block';
-                    document.getElementById('mergeOutputs').innerHTML = ''; // reset previous merge
-                } else {
-                    mergeSection.style.display = 'none';
-                }
+                let html = `
+                    <ul class="output-list">
+                        <li class="output-item">
+                            <span style="font-weight: 500;">${data.file}</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                ${taskName !== 'extract-audio' ? `
+                                <button class="btn btn-sm btn-outline" onclick="loadIntoMainPlayer('${data.file}', '${data.file}')">▶ Play</button>` : ''}
+                                <a href="/download/${currentSession}/${data.file}" class="btn btn-outline btn-sm" style="width:auto; padding:5px 8px" download>Download</a>
+                            </div>
+                        </li>
+                    </ul>`;
+                document.getElementById(c.outputs).innerHTML = html;
             }
             
         } catch (err) {
