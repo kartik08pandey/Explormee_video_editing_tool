@@ -674,9 +674,23 @@
             <!-- Timeline & Output Container (Positioned directly under main video player) -->
             <div id="splitOutputs"></div>
             
-            <!-- Merged Output Notification Section -->
+            <!-- Merged Output Notification & Preview Section -->
             <div id="mergeSection" style="display: none; margin-top: 14px;">
                 <div id="mergeStatus" class="status-box"></div>
+                <div id="mergePreviewContainer" style="display: none; margin-top: 14px;" class="merged-preview-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: 600; color: var(--text-primary); font-size: 1rem;">🎬 Merged & Stacked Video</span>
+                            <span id="mergedMetaBadge" style="font-size: 0.8rem; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: 600;">960×1080</span>
+                        </div>
+                        <a id="downloadMergedBtn" class="btn btn-success btn-sm" href="#" download style="padding: 8px 16px; text-decoration: none; font-weight: 600; width: auto;">
+                            ⬇ Download Merged Video
+                        </a>
+                    </div>
+                    <div class="merged-video-wrapper" style="max-width: 360px; aspect-ratio: 9/16; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                        <video id="mergedVideoPlayer" controls style="width: 100%; height: 100%; object-fit: contain;"></video>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1473,8 +1487,8 @@
         }
     });
 
-    /* --- 1-Click Merge & Download Engine --- */
-    async function mergeAndDownload() {
+    /* --- Dedicated Merge & Stack Engine --- */
+    async function mergeClips() {
         if (!currentSession) return;
         const track = document.getElementById('timelineTrack');
         if (!track) return;
@@ -1482,19 +1496,21 @@
         const cards = track.querySelectorAll('.timeline-clip-card');
         const filesInOrder = Array.from(cards).map(c => c.getAttribute('data-filename'));
         
-        if (filesInOrder.length < 2) {
-            showStatus('mergeStatus', 'error', 'Need at least 2 clips on the timeline to merge.');
+        if (filesInOrder.length < 1) {
+            showStatus('mergeStatus', 'error', 'Need at least 1 clip on the timeline to merge.');
             return;
         }
         
-        const btn = document.getElementById('btnMergeDownload');
+        const btn = document.getElementById('btnMergeClips');
         const origText = btn ? btn.innerHTML : '';
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = `⏳ Merging & Downloading...`;
+            btn.innerHTML = `⏳ Merging & Stacking...`;
         }
         
-        showStatus('mergeStatus', 'info', `Merging ${filesInOrder.length} clips in timeline sequence and preparing download...`);
+        const mergeSection = document.getElementById('mergeSection');
+        if (mergeSection) mergeSection.style.display = 'block';
+        showStatus('mergeStatus', 'info', `Merging ${filesInOrder.length} clip(s), cropping to 1920×540, and stacking halves into 960×1080...`);
         
         try {
             const res = await fetch('/merge', {
@@ -1505,22 +1521,49 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Merge failed');
             
-            // 1. Auto-trigger browser download
             const downloadUrl = `/download/${currentSession}/${data.file}`;
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = data.file;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            const streamUrl = `/media/${currentSession}/${data.file}?t=${Date.now()}`;
             
-            // 2. Display clean confirmation with download again link
+            // 1. Display confirmation without forcing download
             const meta = data.metadata;
             const durInfo = meta && meta.duration_formatted ? ` (Duration: ${meta.duration_formatted})` : '';
             const statusEl = document.getElementById('mergeStatus');
             statusEl.className = 'status-box status-success';
-            statusEl.innerHTML = `✅ Successfully merged ${filesInOrder.length} clips into <strong>${data.file}</strong>${durInfo}! Your download has started automatically. <a href="${downloadUrl}" download style="color: #065f46; font-weight: 600; text-decoration: underline; margin-left: 8px;">Download again</a>`;
+            statusEl.innerHTML = `✅ Successfully merged and stacked ${filesInOrder.length} clip(s) into <strong>${data.file}</strong> (960×1080)${durInfo}! Preview the video below or click Download.`;
             statusEl.style.display = 'block';
+
+            // 2. Show & configure top header download button
+            const headerDownloadBtn = document.getElementById('btnDownloadMergedHeader');
+            if (headerDownloadBtn) {
+                headerDownloadBtn.href = downloadUrl;
+                headerDownloadBtn.setAttribute('download', data.file);
+                headerDownloadBtn.style.display = 'inline-flex';
+            }
+
+            // 3. Show preview player card & configure download button
+            const previewContainer = document.getElementById('mergePreviewContainer');
+            const previewPlayer = document.getElementById('mergedVideoPlayer');
+            const previewDownloadBtn = document.getElementById('downloadMergedBtn');
+            const metaBadge = document.getElementById('mergedMetaBadge');
+
+            if (meta && meta.width && meta.height && metaBadge) {
+                metaBadge.innerText = `${meta.width}×${meta.height}`;
+            }
+
+            if (previewDownloadBtn) {
+                previewDownloadBtn.href = downloadUrl;
+                previewDownloadBtn.setAttribute('download', data.file);
+            }
+
+            if (previewPlayer) {
+                previewPlayer.src = streamUrl;
+                previewPlayer.load();
+            }
+
+            if (previewContainer) {
+                previewContainer.style.display = 'block';
+                previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
             
         } catch (err) {
             showStatus('mergeStatus', 'error', err.message);
@@ -1600,9 +1643,12 @@
                             <button id="btnRestartSequence" class="btn btn-outline btn-sm" onclick="restartSequence()">
                                 ⏮ Restart
                             </button>
-                            <button id="btnMergeDownload" class="btn btn-merge-download btn-sm" onclick="mergeAndDownload()">
-                                ⚡ Merge & Download Sequence
+                            <button id="btnMergeClips" class="btn btn-merge-download btn-sm" onclick="mergeClips()">
+                                ⚡ Merge Clips
                             </button>
+                            <a id="btnDownloadMergedHeader" class="btn btn-success btn-sm" href="#" download style="display:none; text-decoration:none; font-weight:600; width:auto;">
+                                ⬇ Download Merged Video
+                            </a>
                             <a href="/download-zip/${currentSession}" class="btn btn-outline btn-sm" download style="text-decoration:none;">
                                 📦 Download ZIP
                             </a>
@@ -1657,9 +1703,15 @@
 
                 const mergeSection = document.getElementById('mergeSection');
                 if (mergeSection) {
-                    mergeSection.style.display = 'block';
+                    mergeSection.style.display = 'none';
                     document.getElementById('mergeStatus').style.display = 'none';
+                    const prevC = document.getElementById('mergePreviewContainer');
+                    if (prevC) prevC.style.display = 'none';
+                    const prevP = document.getElementById('mergedVideoPlayer');
+                    if (prevP) { prevP.pause(); prevP.removeAttribute('src'); }
                 }
+                const headerDl = document.getElementById('btnDownloadMergedHeader');
+                if (headerDl) headerDl.style.display = 'none';
 
                 isPlayingSequence = false;
                 activeTimelineIndex = -1;

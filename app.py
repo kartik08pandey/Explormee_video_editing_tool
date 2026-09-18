@@ -318,8 +318,8 @@ def merge_clips():
     session_id = secure_filename(data.get('session_id', ''))
     files = data.get('files', [])
     
-    if len(files) < 2:
-        return jsonify({'error': 'At least two clips are required to merge'}), 400
+    if len(files) < 1:
+        return jsonify({'error': 'At least one clip is required to merge'}), 400
         
     session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
     if not os.path.exists(session_dir):
@@ -335,20 +335,35 @@ def merge_clips():
         
     # Create concat list for FFmpeg
     concat_list_path = os.path.join(session_dir, 'concat_list.txt')
-    with open(concat_list_path, 'w') as f:
+    with open(concat_list_path, 'w', encoding='utf-8') as f:
         for sf in secure_files:
             f.write(f"file '{sf}'\n")
             
     out_name = f"merged_{int(time.time())}.mp4"
     out_path = os.path.join(session_dir, out_name)
     
-    # Use concat demuxer which safely joins identical stream formats instantly without re-encoding
+    # 1. Scale/crop video to 1920x540
+    # 2. Cut in middle into two equal 960x540 halves: Left (x=0..960), Right (x=960..1920)
+    # 3. Stack vertically: Right half on top, Left half on bottom -> 960x1080
+    filter_complex = (
+        "[0:v]scale=w=1920:h=540:force_original_aspect_ratio=increase,"
+        "crop=1920:540,split=2[left_full][right_full];"
+        "[left_full]crop=960:540:0:0[left];"
+        "[right_full]crop=960:540:960:0[right];"
+        "[right][left]vstack=inputs=2[outv]"
+    )
+    
     cmd = [
         'ffmpeg', '-y',
         '-f', 'concat',
         '-safe', '0',
         '-i', concat_list_path,
-        '-c', 'copy',
+        '-filter_complex', filter_complex,
+        '-map', '[outv]',
+        '-map', '0:a?',
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-b:a', '192k',
         out_path
     ]
     
