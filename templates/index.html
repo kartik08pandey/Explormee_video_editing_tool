@@ -53,9 +53,41 @@
         
         /* Video & Grid */
         .video-container { position: relative; width: 100%; border-radius: var(--radius-md); overflow: hidden; background: #000; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; user-select: none; }
-        video { width: 100%; height: 100%; object-fit: contain; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         
+        /* Top-Right Crop Toggle Button */
+        .btn-crop-toggle {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 25;
+            background: rgba(15, 23, 42, 0.85);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(8px);
+            padding: 7px 14px;
+            border-radius: 9999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+        }
+        .btn-crop-toggle:hover {
+            background: rgba(30, 41, 59, 0.95);
+            border-color: var(--accent-color);
+            transform: translateY(-1px);
+        }
+        .btn-crop-toggle.active {
+            background: var(--accent-color);
+            border-color: #93c5fd;
+            color: #ffffff;
+            box-shadow: 0 0 14px rgba(59, 130, 246, 0.6);
+        }
+
         /* Crop Editor Overlay */
         #cropEditor {
             position: absolute;
@@ -652,6 +684,11 @@
             <div class="video-container" id="videoContainer">
                 <video id="videoPlayer" controls></video>
                 
+                <!-- Top-Right Crop Toggle Button -->
+                <button id="btnToggleCropOverlay" class="btn-crop-toggle" onclick="toggleCropOverlay()" title="Toggle Interactive Crop Box" style="display: none;">
+                    <span>✂️</span> <span id="cropToggleText">Crop Video</span>
+                </button>
+
                 <!-- Millisecond Timestamp Overlay -->
                 <div id="videoTimeOverlay">00:00:00.000</div>
                 
@@ -818,6 +855,17 @@
             // Show workspace & load video
             document.querySelectorAll('.tools-section').forEach(el => el.style.display = 'block');
             document.getElementById('videoTimeOverlay').style.display = 'block';
+
+            // Show Crop Toggle button on top-right of player, initially inactive
+            const cropToggleBtn = document.getElementById('btnToggleCropOverlay');
+            if (cropToggleBtn) {
+                cropToggleBtn.style.display = 'flex';
+                cropToggleBtn.classList.remove('active');
+                document.getElementById('cropToggleText').innerText = 'Crop Video';
+            }
+            isCropToolActive = false;
+            if (cropEditor) cropEditor.style.display = 'none';
+
             videoPlayer.src = `/media/${currentSession}/${currentFilename}`;
             
         } catch (err) {
@@ -829,6 +877,26 @@
     
     // Core actual coordinates (Source of Truth)
     let actualCrop = { x: 0, y: 0, w: 1280, h: 720 };
+    let isCropToolActive = false;
+
+    function toggleCropOverlay() {
+        if (!videoMeta) return;
+        isCropToolActive = !isCropToolActive;
+        const btn = document.getElementById('btnToggleCropOverlay');
+        const text = document.getElementById('cropToggleText');
+        
+        if (isCropToolActive) {
+            if (btn) btn.classList.add('active');
+            if (text) text.innerText = 'Close Crop';
+            renderCropOverlay();
+            const cropCard = document.getElementById('cropCard');
+            if (cropCard) cropCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            if (btn) btn.classList.remove('active');
+            if (text) text.innerText = 'Crop Video';
+            if (cropEditor) cropEditor.style.display = 'none';
+        }
+    }
     
     const cropEditor = document.getElementById('cropEditor');
     const cropBox = document.getElementById('cropBox');
@@ -873,6 +941,10 @@
     // Re-render the visual crop box overlay based on actual coordinates
     function renderCropOverlay() {
         if (!videoMeta) return;
+        if (!isCropToolActive) {
+            if (cropEditor) cropEditor.style.display = 'none';
+            return;
+        }
         const rect = getVideoDisplayRect();
         if (!rect) return;
         
@@ -915,7 +987,11 @@
         
         actualCrop = { x: nx, y: ny, w: nw, h: nh };
         updateInputFields(); // Push clamped values back to UI
-        renderCropOverlay();
+        if (!isCropToolActive) {
+            toggleCropOverlay();
+        } else {
+            renderCropOverlay();
+        }
     }
 
     // Update manual input DOM fields from the actual variables
@@ -931,7 +1007,11 @@
         actualCrop = { x: 0, y: 0, w: videoMeta.width, h: videoMeta.height };
         document.getElementById('cropRatio').value = 'free';
         updateInputFields();
-        renderCropOverlay();
+        if (!isCropToolActive) {
+            toggleCropOverlay();
+        } else {
+            renderCropOverlay();
+        }
     }
 
     function applyAspectRatio() {
@@ -958,7 +1038,11 @@
         actualCrop.y = Math.min(actualCrop.y, videoMeta.height - actualCrop.h);
         
         updateInputFields();
-        renderCropOverlay();
+        if (!isCropToolActive) {
+            toggleCropOverlay();
+        } else {
+            renderCropOverlay();
+        }
     }
 
     /* Interaction logic for dragging and resizing */
@@ -1066,7 +1150,11 @@
         // Only reset to full if it's the first time processing this video
         actualCrop = { x: 0, y: 0, w: videoMeta.width, h: videoMeta.height };
         updateInputFields();
-        renderCropOverlay();
+        if (isCropToolActive) {
+            renderCropOverlay();
+        } else {
+            if (cropEditor) cropEditor.style.display = 'none';
+        }
     });
 
     // Millisecond timestamp updater
