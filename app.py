@@ -131,9 +131,24 @@ def parse_clip_segments(duration_text):
         range_match = re.split(r'\s*(?:->|[-–—]|\bto\b)\s*', line, maxsplit=1, flags=re.IGNORECASE)
 
         if len(range_match) == 2 and range_match[0] and range_match[1]:
+            end_part = range_match[1].strip()
+            custom_name = None
+            if '|' in end_part:
+                t_sub, n_sub = end_part.split('|', 1)
+                end_part = t_sub.strip()
+                custom_name = n_sub.strip()
+            elif ' ' in end_part:
+                tokens = end_part.split(None, 1)
+                try:
+                    _ = parse_time_str(tokens[0])
+                    end_part = tokens[0]
+                    custom_name = tokens[1].strip()
+                except ValueError:
+                    pass
+
             try:
                 start_sec = parse_time_str(range_match[0])
-                end_sec = parse_time_str(range_match[1])
+                end_sec = parse_time_str(end_part)
             except ValueError:
                 raise ValueError(f"Invalid timestamp range: '{line}'")
 
@@ -143,14 +158,17 @@ def parse_clip_segments(duration_text):
                 raise ValueError(f"End time must be greater than start time: '{line}' ({end_sec}s <= {start_sec}s)")
 
             dur = end_sec - start_sec
-            segments.append({
+            seg_dict = {
                 'start': start_sec,
                 'end': end_sec,
                 'duration': dur,
                 'start_formatted': format_timestamp(start_sec),
                 'end_formatted': format_timestamp(end_sec),
                 'range_label': f"{format_timestamp(start_sec)} -> {format_timestamp(end_sec)}"
-            })
+            }
+            if custom_name:
+                seg_dict['name'] = custom_name
+            segments.append(seg_dict)
             current_chain_start = end_sec
         else:
             # Fallback if a single number/duration is provided
@@ -278,7 +296,17 @@ def split_video():
     clip_details = []
     
     for i, seg in enumerate(segments):
-        out_name = f"clip_{i+1:02d}.mp4"
+        if seg.get('name'):
+            clean_name = secure_filename(seg['name'])
+            if clean_name:
+                if not clean_name.lower().endswith('.mp4'):
+                    clean_name += '.mp4'
+                out_name = clean_name
+            else:
+                out_name = f"clip_{i+1:02d}.mp4"
+        else:
+            out_name = f"clip_{i+1:02d}.mp4"
+            
         out_path = os.path.join(session_dir, out_name)
         
         # Using -preset veryfast to speed up re-encoding while maintaining precise cuts
@@ -311,6 +339,42 @@ def split_video():
             return jsonify({'error': f"FFmpeg failed on clip {i+1} ({seg['range_label']}). Error snippet: {e.stderr.decode()[-200:]}"}), 500
             
     return jsonify({'message': 'Success', 'files': output_files, 'clip_details': clip_details})
+
+@app.route('/rename-clip', methods=['POST'])
+def rename_clip():
+    data = request.json
+    session_id = secure_filename(data.get('session_id', ''))
+    old_name = secure_filename(data.get('old_name', ''))
+    raw_new_name = data.get('new_name', '').strip()
+    
+    if not raw_new_name:
+        return jsonify({'error': 'Clip name cannot be empty'}), 400
+        
+    if not raw_new_name.lower().endswith('.mp4'):
+        raw_new_name += '.mp4'
+        
+    new_name = secure_filename(raw_new_name)
+    if not new_name or new_name == '.mp4':
+        return jsonify({'error': 'Invalid file name'}), 400
+        
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
+    if not os.path.exists(session_dir):
+        return jsonify({'error': 'Session not found'}), 404
+        
+    old_path = os.path.join(session_dir, old_name)
+    new_path = os.path.join(session_dir, new_name)
+    
+    if not os.path.exists(old_path):
+        return jsonify({'error': f'Source clip "{old_name}" not found'}), 404
+        
+    if old_name != new_name and os.path.exists(new_path):
+        return jsonify({'error': f'A clip named "{new_name}" already exists'}), 400
+        
+    try:
+        os.rename(old_path, new_path)
+        return jsonify({'message': 'Success', 'old_name': old_name, 'new_name': new_name})
+    except Exception as e:
+        return jsonify({'error': f'Renaming failed: {str(e)}'}), 500
 
 @app.route('/merge', methods=['POST'])
 def merge_clips():
