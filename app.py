@@ -88,28 +88,91 @@ def get_video_metadata(filepath):
         print(f"Metadata extraction error: {e}")
         return None
 
-def parse_durations(duration_text):
-    """Parse a list of durations (seconds or HH:MM:SS) into a list of floats."""
-    parts = re.split(r'[,\n\r]+', duration_text)
-    seconds_list = []
-    for p in parts:
-        p = p.strip()
-        if not p:
+def parse_time_str(val):
+    """Parse a single timestamp string (seconds, MM:SS, or HH:MM:SS) into a float of seconds."""
+    val = val.strip()
+    if not val:
+        raise ValueError("Empty timestamp")
+    if ':' in val:
+        parts = val.split(':')
+        if len(parts) == 3:
+            h, m, s = map(float, parts)
+            return h * 3600 + m * 60 + s
+        elif len(parts) == 2:
+            m, s = map(float, parts)
+            return m * 60 + s
+        else:
+            raise ValueError(f"Invalid timestamp format: '{val}'")
+    else:
+        return float(val)
+
+def format_timestamp(seconds):
+    """Format seconds into HH:MM:SS.ss or MM:SS.ss."""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = seconds % 60
+    if hours > 0:
+        return f"{hours:02d}:{minutes:02d}:{secs:05.2f}"
+    else:
+        return f"{minutes:02d}:{secs:05.2f}"
+
+def parse_clip_segments(duration_text):
+    """Parse timestamp ranges (e.g., 00:10 - 00:25, 01:15 to 01:45) or single durations into clip segment dicts."""
+    raw_lines = re.split(r'[,\n\r]+', duration_text)
+    segments = []
+    current_chain_start = 0.0
+
+    for raw in raw_lines:
+        line = raw.strip()
+        if not line:
             continue
-        try:
-            if ':' in p:
-                time_parts = p.split(':')
-                if len(time_parts) == 3:
-                    h, m, s = map(float, time_parts)
-                    seconds_list.append(h * 3600 + m * 60 + s)
-                elif len(time_parts) == 2:
-                    m, s = map(float, time_parts)
-                    seconds_list.append(m * 60 + s)
-            else:
-                seconds_list.append(float(p))
-        except ValueError:
-            raise ValueError(f"Invalid duration format: '{p}'")
-    return seconds_list
+
+        # Check for range delimiters: ->, -, –, —, or "to"
+        range_match = re.split(r'\s*(?:->|[-–—]|\bto\b)\s*', line, maxsplit=1, flags=re.IGNORECASE)
+
+        if len(range_match) == 2 and range_match[0] and range_match[1]:
+            try:
+                start_sec = parse_time_str(range_match[0])
+                end_sec = parse_time_str(range_match[1])
+            except ValueError:
+                raise ValueError(f"Invalid timestamp range: '{line}'")
+
+            if start_sec < 0 or end_sec < 0:
+                raise ValueError(f"Timestamps must be non-negative: '{line}'")
+            if end_sec <= start_sec:
+                raise ValueError(f"End time must be greater than start time: '{line}' ({end_sec}s <= {start_sec}s)")
+
+            dur = end_sec - start_sec
+            segments.append({
+                'start': start_sec,
+                'end': end_sec,
+                'duration': dur,
+                'start_formatted': format_timestamp(start_sec),
+                'end_formatted': format_timestamp(end_sec),
+                'range_label': f"{format_timestamp(start_sec)} → {format_timestamp(end_sec)}"
+            })
+            current_chain_start = end_sec
+        else:
+            # Fallback if a single number/duration is provided
+            try:
+                dur = parse_time_str(line)
+            except ValueError:
+                raise ValueError(f"Invalid timestamp format: '{line}'. Example range: '00:10 - 00:25'")
+            if dur <= 0:
+                raise ValueError(f"Duration must be greater than 0: '{line}'")
+            start_sec = current_chain_start
+            end_sec = start_sec + dur
+            segments.append({
+                'start': start_sec,
+                'end': end_sec,
+                'duration': dur,
+                'start_formatted': format_timestamp(start_sec),
+                'end_formatted': format_timestamp(end_sec),
+                'range_label': f"{format_timestamp(start_sec)} → {format_timestamp(end_sec)}"
+            })
+            current_chain_start = end_sec
+
+    return segments
 
 @app.route('/')
 def index():
@@ -198,12 +261,12 @@ def split_video():
     duration_text = data.get('durations', '')
     
     try:
-        durations = parse_durations(duration_text)
+        segments = parse_clip_segments(duration_text)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
         
-    if not durations:
-        return jsonify({'error': 'No valid durations provided'}), 400
+    if not segments:
+        return jsonify({'error': 'No valid timestamps or ranges provided'}), 400
         
     session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
     input_path = os.path.join(session_dir, filename)
@@ -213,20 +276,20 @@ def split_video():
         
     output_files = []
     clip_details = []
-    current_start = 0.0
     
-    for i, dur in enumerate(durations):
+    for i, seg in enumerate(segments):
         out_name = f"clip_{i+1:02d}.mp4"
         out_path = os.path.join(session_dir, out_name)
         
         # Using -preset veryfast to speed up re-encoding while maintaining precise cuts
         cmd = [
             'ffmpeg', '-y', 
-            '-ss', str(current_start), 
-            '-t', str(dur), 
+            '-ss', str(seg['start']), 
             '-i', input_path, 
+            '-t', str(seg['duration']), 
             '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
             '-c:a', 'aac', '-b:a', '192k',
+            '-avoid_negative_ts', 'make_zero',
             out_path
         ]
         
@@ -236,13 +299,16 @@ def split_video():
             clip_details.append({
                 'filename': out_name,
                 'index': i + 1,
-                'duration': dur,
-                'duration_formatted': f"{dur:.2f}s",
-                'start_time': current_start
+                'duration': seg['duration'],
+                'duration_formatted': f"{seg['duration']:.2f}s",
+                'start_time': seg['start'],
+                'end_time': seg['end'],
+                'start_formatted': seg['start_formatted'],
+                'end_formatted': seg['end_formatted'],
+                'range_label': seg['range_label']
             })
-            current_start += dur
         except subprocess.CalledProcessError as e:
-            return jsonify({'error': f"FFmpeg failed on clip {i+1}. Error snippet: {e.stderr.decode()[-200:]}"}), 500
+            return jsonify({'error': f"FFmpeg failed on clip {i+1} ({seg['range_label']}). Error snippet: {e.stderr.decode()[-200:]}"}), 500
             
     return jsonify({'message': 'Success', 'files': output_files, 'clip_details': clip_details})
 

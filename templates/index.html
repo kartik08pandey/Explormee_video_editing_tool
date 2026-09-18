@@ -575,8 +575,11 @@
         <!-- Generate Clips Input & Button -->
         <div class="card tools-section" id="splitInputCard">
             <div class="card-title">Generate Clips</div>
-            <label for="durations">Sequential Durations (e.g., 10.5, 15, or 00:00:10.500)</label>
-            <textarea id="durations" placeholder="10.5&#10;15.250&#10;30"></textarea>
+            <label for="durations">Timestamp Ranges (Start &ndash; End)</label>
+            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 8px;">
+                Enter non-sequential cuts like <code>00:10 - 00:25</code> or <code>01:15 to 01:45</code> (one per line).
+            </div>
+            <textarea id="durations" rows="4" placeholder="00:10 - 00:25&#10;01:15 - 01:45&#10;05:00 - 05:30"></textarea>
             <button class="btn" id="btnSplit" onclick="processTask('split')">Generate Clips</button>
             <div id="splitStatus" class="status-box" style="margin-top:12px;"></div>
         </div>
@@ -1367,8 +1370,8 @@
         
         nameEl.innerText = clip.filename;
         const durText = clip.duration_formatted ? `Duration: ${clip.duration_formatted}` : '';
-        const startText = (clip.start_time !== undefined) ? ` • Starts at: ${clip.start_time.toFixed(2)}s` : '';
-        metaEl.innerText = `${durText}${startText}` || 'Clip Preview';
+        const rangeText = clip.range_label ? ` • Range: ${clip.range_label}` : ((clip.start_time !== undefined) ? ` • Starts at: ${clip.start_time.toFixed(2)}s` : '');
+        metaEl.innerText = `${durText}${rangeText}` || 'Clip Preview';
         counterEl.innerText = `Clip ${activeClipIndex + 1} of ${currentClips.length}`;
         
         downloadBtn.href = `/download/${currentSession}/${clip.filename}`;
@@ -1624,6 +1627,7 @@
                                 <span class="clip-index-badge">#${idx + 1}</span>
                                 <span class="clip-duration-badge">⏱ ${durBadge}</span>
                             </div>
+                            ${detail.range_label ? `<div style="font-size:0.71rem; font-weight:600; font-family:monospace; color:#1d4ed8; background:#eff6ff; padding:2px 6px; border-radius:4px; margin:4px 0 2px 0; border:1px solid #bfdbfe; text-align:center;">📍 ${detail.range_label}</div>` : ''}
                             <div class="clip-card-body">
                                 <div class="clip-card-name" title="${f}">📹 ${f}</div>
                                 <div class="clip-progress-container">
