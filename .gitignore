@@ -21,3 +21,8 @@ outputs/*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Portable preconfigured binaries
+bin/
+python_portable/
+
