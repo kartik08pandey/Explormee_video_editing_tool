@@ -180,7 +180,7 @@
                     <div class="timeline-top-bar">
                         <div class="timeline-meta-info">
                             <span style="font-size:1.15rem;">🎞</span>
-                            <span><strong>${data.files.length} Clips Generated</strong> &bull; Total: <span id="timelineTotalDuration" style="font-family:monospace; color:var(--accent-color); font-weight:600;">${totalFormatted}</span></span>
+                            <span><span id="timelineClipsCountText"><strong>${data.files.length} Clips Generated</strong></span> &bull; Total: <span id="timelineTotalDuration" style="font-family:monospace; color:var(--accent-color); font-weight:600;">${totalFormatted}</span></span>
                         </div>
                         <div class="timeline-actions">
                             <button id="btnPlaySequence" class="btn btn-sequence-play btn-sm" onclick="togglePlaySequence()">
@@ -220,8 +220,16 @@
                             <div class="clip-trim-handle trim-left" title="Drag to trim start (pull left to extend, right to shorten)" onmousedown="handleTrimHandleMouseDown(event, 'left')"></div>
                             <div class="clip-trim-handle trim-right" title="Drag to trim end (pull right to extend, left to shorten)" onmousedown="handleTrimHandleMouseDown(event, 'right')"></div>
                             <div class="clip-card-header">
-                                <span class="clip-index-badge">#${idx + 1}</span>
-                                <span class="clip-duration-badge" id="clip-dur-${idx}">⏱ ${durBadge}</span>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span class="clip-index-badge">#${idx + 1}</span>
+                                    <span class="clip-duration-badge" id="clip-dur-${idx}">⏱ ${durBadge}</span>
+                                </div>
+                                <button class="clip-delete-btn" onclick="deleteTimelineClip(this, '${f}')" title="Delete clip from timeline">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                </button>
                             </div>
                             <div class="clip-range-badge" id="clip-range-${idx}" style="font-size:0.71rem; font-weight:600; font-family:monospace; color:#1d4ed8; background:#eff6ff; padding:2px 6px; border-radius:4px; margin:4px 0 2px 0; border:1px solid #bfdbfe; text-align:center; ${detail.range_label ? '' : 'display:none;'}">📍 ${detail.range_label || ''}</div>
                             <div class="clip-card-body">

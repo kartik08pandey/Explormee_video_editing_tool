@@ -75,14 +75,17 @@ let activeTimelineIndex = -1;
 
 
     function updateTimelineTotalDuration() {
-        if (!currentClips || currentClips.length === 0) return;
+        const totalEl = document.getElementById('timelineTotalDuration');
+        if (!currentClips || currentClips.length === 0) {
+            if (totalEl) totalEl.innerText = '0.0s';
+            return;
+        }
         const totalSec = currentClips.reduce((sum, cl) => sum + (cl.duration || 0), 0);
         const th = Math.floor(totalSec / 3600);
         const tm = Math.floor((totalSec % 3600) / 60);
         const ts = (totalSec % 60).toFixed(1);
         const totalFormatted = th > 0 ? `${th}h ${tm}m ${ts}s` : `${tm}m ${ts}s`;
 
-        const totalEl = document.getElementById('timelineTotalDuration');
         if (totalEl) {
             totalEl.innerText = totalFormatted;
         }

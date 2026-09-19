@@ -1,7 +1,7 @@
 /* --- Drag and Drop & Reordering Logic for Timeline --- */
 
     document.getElementById('splitOutputs').addEventListener('dragstart', (e) => {
-        if (e.target.classList.contains('clip-trim-handle') || isTrimmingActive) {
+        if (e.target.classList.contains('clip-trim-handle') || isTrimmingActive || e.target.closest('button') || e.target.closest('input')) {
             e.preventDefault();
             return false;
         }
@@ -99,6 +99,82 @@
             }
         });
         return ordered;
+    }
+
+    async function deleteTimelineClip(btn, filename) {
+        const card = btn.closest('.timeline-clip-card');
+        if (!card) return;
+
+        // Visual feedback & animated exit transition
+        card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.85)';
+        card.style.pointerEvents = 'none';
+
+        setTimeout(async () => {
+            card.remove();
+
+            // 1. Remove from in-memory currentClips array
+            if (currentClips && Array.isArray(currentClips)) {
+                currentClips = currentClips.filter(c => c.filename !== filename);
+            }
+
+            // 2. Re-index remaining cards (#1, #2, ...) & update shift button states
+            updateTimelineIndices();
+
+            // 3. Update count and total duration in timeline top bar
+            const track = document.getElementById('timelineTrack');
+            const remainingCards = track ? track.querySelectorAll('.timeline-clip-card') : [];
+            const countEl = document.getElementById('timelineClipsCountText');
+            if (countEl) {
+                countEl.innerHTML = `<strong>${remainingCards.length} Clip${remainingCards.length === 1 ? '' : 's'}</strong>`;
+            }
+            updateTimelineTotalDuration();
+
+            // 4. Handle empty timeline state
+            if (remainingCards.length === 0) {
+                if (track) {
+                    track.innerHTML = `<div id="timelineEmptyNotice" style="padding: 24px; color: #94a3b8; font-size: 0.88rem; text-align: center; width: 100%;">No clips on timeline.</div>`;
+                }
+                const playSeq = document.getElementById('btnPlaySequence');
+                const mergeOnly = document.getElementById('btnMergeOnly');
+                const mergeCrop = document.getElementById('btnMergeCrop');
+                if (playSeq) playSeq.disabled = true;
+                if (mergeOnly) mergeOnly.disabled = true;
+                if (mergeCrop) mergeCrop.disabled = true;
+            }
+
+            // 5. If workspace player is currently playing this deleted clip, stop it
+            if (videoPlayer && videoPlayer.src && videoPlayer.src.includes(filename)) {
+                videoPlayer.pause();
+                const banner = document.getElementById('activeVideoBanner');
+                if (banner) banner.style.display = 'none';
+            }
+
+            // 6. If sequence playback is active, refresh the sequence queue
+            if (isPlayingSequence) {
+                sequenceClips = getTimelineClipsOrder();
+                if (sequenceClips.length === 0) {
+                    isPlayingSequence = false;
+                    updateSequencePlayButton();
+                    activeTimelineIndex = -1;
+                    highlightTimelineCard(-1);
+                }
+            }
+
+            // 7. Delete clip from server session directory in background
+            if (currentSession && filename) {
+                try {
+                    await fetch('/delete-clip', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: currentSession, filename: filename })
+                    });
+                } catch (err) {
+                    console.warn('Failed to delete clip file from server:', err);
+                }
+            }
+        }, 200);
     }
 
 

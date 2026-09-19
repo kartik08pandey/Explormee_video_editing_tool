@@ -376,6 +376,28 @@ def rename_clip():
     except Exception as e:
         return jsonify({'error': f'Renaming failed: {str(e)}'}), 500
 
+@app.route('/delete-clip', methods=['POST'])
+def delete_clip():
+    data = request.json
+    session_id = secure_filename(data.get('session_id', ''))
+    filename = secure_filename(data.get('filename', ''))
+
+    if not session_id or not filename:
+        return jsonify({'error': 'Missing session_id or filename'}), 400
+
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
+    if not os.path.exists(session_dir):
+        return jsonify({'error': 'Session not found'}), 404
+
+    clip_path = os.path.join(session_dir, filename)
+    if os.path.exists(clip_path):
+        try:
+            os.remove(clip_path)
+        except Exception as e:
+            return jsonify({'error': f'Failed to delete file: {str(e)}'}), 500
+
+    return jsonify({'message': 'Success', 'filename': filename})
+
 @app.route('/trim-clip', methods=['POST'])
 def trim_clip():
     data = request.json
