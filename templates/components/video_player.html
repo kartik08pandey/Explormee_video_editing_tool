@@ -1,0 +1,35 @@
+<!-- Active Video Banner -->
+            <div id="activeVideoBanner" class="active-video-banner" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="active-video-dot"></span>
+                    <span id="activeVideoTitle" style="font-weight: 500; font-size: 0.875rem;">Now Previewing</span>
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="restoreOriginalVideo()" style="width: auto; padding: 4px 10px; font-size: 0.8rem;">↩ Back to Original Video</button>
+            </div>
+
+            <div class="video-container" id="videoContainer">
+                <video id="videoPlayer" controls></video>
+                
+                <!-- Top-Right Crop Toggle Button -->
+                <button id="btnToggleCropOverlay" class="btn-crop-toggle" onclick="toggleCropOverlay()" title="Toggle Interactive Crop Box" style="display: none;">
+                    <span>✂️</span> <span id="cropToggleText">Crop Video</span>
+                </button>
+
+                <!-- Millisecond Timestamp Overlay -->
+                <div id="videoTimeOverlay">00:00:00.000</div>
+                
+                <!-- Interactive Crop Overlay -->
+                <div id="cropEditor">
+                    <div id="cropBox">
+                        <div class="crop-handle handle-tl" data-dir="tl"></div>
+                        <div class="crop-handle handle-tc" data-dir="tc"></div>
+                        <div class="crop-handle handle-tr" data-dir="tr"></div>
+                        <div class="crop-handle handle-ml" data-dir="ml"></div>
+                        <div class="crop-handle handle-mr" data-dir="mr"></div>
+                        <div class="crop-handle handle-bl" data-dir="bl"></div>
+                        <div class="crop-handle handle-bc" data-dir="bc"></div>
+                        <div class="crop-handle handle-br" data-dir="br"></div>
+                        <div class="crop-info-badge" id="cropBadge">0x0</div>
+                    </div>
+                </div>
+            </div>

@@ -1,0 +1,21 @@
+/* Sidebar Styles */
+/* Header */
+        /* Header */
+        .header { margin-bottom: 24px; }
+        .header h1 { font-size: 1.75rem; color: var(--text-primary); }
+        .header p { color: var(--text-secondary); }
+
+
+/* Upload Area */
+        /* Upload Area */
+        .upload-area { border: 2px dashed var(--border-color); border-radius: var(--radius-md); padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc; }
+        .upload-area:hover { border-color: var(--accent-color); background: #f1f5f9; }
+        .upload-area.dragover { border-color: var(--accent-color); background: #eff6ff; }
+        .upload-area input[type="file"] { display: none; }
+        
+
+/* Metadata Table */
+        /* Metadata Table */
+        .meta-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; margin-bottom: 16px; }
+        .meta-table th, .meta-table td { padding: 8px 0; border-bottom: 1px solid var(--border-color); text-align: left; }
+        .meta-table th { color: var(--text-secondary); font-weight: 500; width: 40%; }

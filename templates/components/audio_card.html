@@ -1,0 +1,37 @@
+<!-- Extract Audio Tool (Full width below Split Tool) -->
+        <div class="card tools-section" id="audioCard">
+            <div class="card-title">Extract Audio</div>
+            <div class="grid-2">
+                <div>
+                    <label>Format</label>
+                    <select id="audioFormat" onchange="toggleAudioSettings()">
+                        <option value="mp3">MP3</option>
+                        <option value="wav">WAV</option>
+                        <option value="aac">AAC</option>
+                        <option value="m4a">M4A</option>
+                        <option value="flac">FLAC</option>
+                        <option value="ogg">OGG</option>
+                    </select>
+                </div>
+                <div id="bitrateContainer">
+                    <label>Bitrate</label>
+                    <select id="audioBitrate">
+                        <option value="64k">64 kbps</option>
+                        <option value="128k">128 kbps</option>
+                        <option value="192k" selected>192 kbps</option>
+                        <option value="256k">256 kbps</option>
+                        <option value="320k">320 kbps</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Sample Rate</label>
+                    <select id="audioSampleRate">
+                        <option value="44100" selected>44100 Hz</option>
+                        <option value="48000">48000 Hz</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn" id="btnAudio" onclick="processTask('extract-audio')">Extract Audio</button>
+            <div id="audioStatus" class="status-box" style="margin-top:12px;"></div>
+            <div id="audioOutputs"></div>
+        </div>

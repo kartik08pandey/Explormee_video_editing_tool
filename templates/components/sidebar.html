@@ -1,0 +1,84 @@
+<!-- Sidebar / Input -->
+    <div class="sidebar">
+        <div class="header">
+            <h1>Video Editor</h1>
+            <p>Powered by Python & FFmpeg</p>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <input type="file" id="fileInput" accept=".mp4,.mov,.avi,.mkv,.webm,.mpeg,.mpg" style="display: none;">
+            <button class="btn" id="btnImport" style="padding: 12px 18px; font-size: 0.95rem; font-weight: 600;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                Import Video
+            </button>
+            <div id="uploadStatus" class="status-box" style="margin-top: 12px;"></div>
+        </div>
+
+        <!-- Generate Clips Input & Button -->
+        <div class="card tools-section" id="splitInputCard">
+            <div class="card-title">Generate Clips</div>
+            <label for="durations">Timestamp Ranges (Start &ndash; End)</label>
+            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 8px;">
+                Enter non-sequential cuts like <code>00:10 - 00:25</code> or <code>01:15 to 01:45</code> (one per line).
+            </div>
+            <textarea id="durations" rows="4" placeholder="00:10 - 00:25&#10;01:15 - 01:45&#10;05:00 - 05:30"></textarea>
+            <button class="btn" id="btnSplit" onclick="processTask('split')">Generate Clips</button>
+            <div id="splitStatus" class="status-box" style="margin-top:12px;"></div>
+        </div>
+
+        <!-- Crop Tool -->
+        <div class="card tools-section" id="cropCard">
+            <div class="card-title">Crop Video</div>
+            <div class="grid-2" style="margin-bottom: 12px;">
+                <div>
+                    <label>Aspect Ratio</label>
+                    <select id="cropRatio" onchange="applyAspectRatio()">
+                        <option value="free">Free</option>
+                        <option value="1">1:1 (Square)</option>
+                        <option value="1.777777">16:9 (Landscape)</option>
+                        <option value="0.5625">9:16 (Portrait)</option>
+                        <option value="1.333333">4:3</option>
+                        <option value="0.75">3:4</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: flex-end; padding-bottom: 16px;">
+                    <button class="btn btn-outline" onclick="resetCrop()" style="padding: 9px 12px;">Reset Full</button>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <label>X Offset (px)</label>
+                    <input type="number" id="cropX" value="0" min="0" onchange="syncCropFromInputs()">
+                </div>
+                <div>
+                    <label>Y Offset (px)</label>
+                    <input type="number" id="cropY" value="0" min="0" onchange="syncCropFromInputs()">
+                </div>
+                <div>
+                    <label>Width (px)</label>
+                    <input type="number" id="cropW" value="1280" min="1" onchange="syncCropFromInputs()">
+                </div>
+                <div>
+                    <label>Height (px)</label>
+                    <input type="number" id="cropH" value="720" min="1" onchange="syncCropFromInputs()">
+                </div>
+            </div>
+            <button class="btn" id="btnCrop" onclick="processTask('crop')">Crop Video</button>
+            <div id="cropStatus" class="status-box" style="margin-top:12px;"></div>
+            <div id="cropOutputs"></div>
+        </div>
+
+        <!-- File Details -->
+        <div class="card tools-section" id="metaCard">
+            <div class="card-title">File Details</div>
+            <table class="meta-table" id="metaTable">
+                <tbody>
+                    <!-- Injected via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>

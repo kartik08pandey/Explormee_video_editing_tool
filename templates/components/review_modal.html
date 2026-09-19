@@ -1,0 +1,35 @@
+<!-- Clip Review Modal Dialog -->
+<div id="clipReviewModal" class="modal-backdrop" style="display: none;" onclick="handleModalBackdropClick(event)">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <div>
+                <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+                    <span>🎬</span>
+                    <span id="modalClipName">Clip Review</span>
+                    <button class="modal-rename-btn" onclick="renameCurrentModalClip()" title="Rename this clip" style="background: none; border: none; cursor: pointer; font-size: 0.9rem; color: #94a3b8; padding: 2px 4px; border-radius: 4px; line-height: 1;">✏️</button>
+                </div>
+                <div id="modalClipMeta" class="modal-subtitle">Loading...</div>
+            </div>
+            <button class="modal-close-btn" onclick="closeClipReview()" title="Close (Esc)">&times;</button>
+        </div>
+        <div class="modal-video-container">
+            <video id="modalVideoPlayer" controls playsinline></video>
+        </div>
+        <div class="modal-footer">
+            <div class="modal-nav">
+                <button class="btn btn-outline btn-sm" id="prevClipBtn" onclick="navigateClip(-1)">← Previous</button>
+                <span id="modalClipCounter" style="font-size: 0.85rem; color: #94a3b8; font-weight: 500;">Clip 1 of 1</span>
+                <button class="btn btn-outline btn-sm" id="nextClipBtn" onclick="navigateClip(1)">Next →</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline btn-sm" id="modalLoadMainBtn" onclick="loadModalClipIntoMain()">Load in Workspace</button>
+                <a id="modalDownloadBtn" href="#" class="btn btn-play btn-sm" download style="text-decoration: none;">Download Clip</a>
+            </div>
+        </div>
+        <div class="modal-hints">
+            <span><kbd>Space</kbd> Play/Pause</span>
+            <span><kbd>←</kbd> <kbd>→</kbd> Prev/Next Clip</span>
+            <span><kbd>Esc</kbd> Close</span>
+        </div>
+    </div>
+</div>
