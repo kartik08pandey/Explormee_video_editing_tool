@@ -398,6 +398,48 @@ def delete_clip():
 
     return jsonify({'message': 'Success', 'filename': filename})
 
+@app.route('/duplicate-clip', methods=['POST'])
+def duplicate_clip():
+    data = request.json
+    session_id = secure_filename(data.get('session_id', ''))
+    filename = secure_filename(data.get('filename', ''))
+
+    if not session_id or not filename:
+        return jsonify({'error': 'Missing session_id or filename'}), 400
+
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
+    if not os.path.exists(session_dir):
+        return jsonify({'error': 'Session not found'}), 404
+
+    src_path = os.path.join(session_dir, filename)
+    if not os.path.exists(src_path):
+        return jsonify({'error': f'Source clip "{filename}" not found'}), 404
+
+    # Generate a unique copy filename
+    base, ext = os.path.splitext(filename)
+    match = re.match(r'^(.*?)(?:_copy(?:_(\d+))?)?$', base)
+    clean_base = match.group(1) if match and match.group(1) else base
+
+    new_filename = f"{clean_base}_copy{ext}"
+    counter = 1
+    while os.path.exists(os.path.join(session_dir, new_filename)):
+        counter += 1
+        new_filename = f"{clean_base}_copy_{counter}{ext}"
+
+    dst_path = os.path.join(session_dir, new_filename)
+    try:
+        shutil.copy2(src_path, dst_path)
+    except Exception as e:
+        return jsonify({'error': f'Failed to duplicate file: {str(e)}'}), 500
+
+    meta = get_video_metadata(dst_path)
+    return jsonify({
+        'message': 'Success',
+        'original_filename': filename,
+        'new_filename': new_filename,
+        'metadata': meta
+    })
+
 @app.route('/trim-clip', methods=['POST'])
 def trim_clip():
     data = request.json

@@ -75,6 +75,40 @@
             const rightBtn = card.querySelector('.btn-shift-right');
             if (leftBtn) leftBtn.disabled = (idx === 0);
             if (rightBtn) rightBtn.disabled = (idx === cards.length - 1);
+
+            const fn = card.getAttribute('data-filename');
+
+            // Sync indexed elements & event bindings
+            const dur = card.querySelector('.clip-duration-badge');
+            if (dur) dur.id = `clip-dur-${idx}`;
+            const range = card.querySelector('.clip-range-badge');
+            if (range) range.id = `clip-range-${idx}`;
+            const nameRow = card.querySelector('.clip-card-name-row');
+            if (nameRow) nameRow.id = `clip-name-display-${idx}`;
+            const nameText = card.querySelector('.clip-card-name');
+            if (nameText) {
+                nameText.id = `clip-name-text-${idx}`;
+                nameText.onclick = () => startRenameClip(fn, idx);
+            }
+            const renameBtn = card.querySelector('.clip-rename-btn');
+            if (renameBtn) renameBtn.onclick = () => startRenameClip(fn, idx);
+            const renameBox = card.querySelector('.clip-rename-box');
+            if (renameBox) renameBox.id = `clip-rename-box-${idx}`;
+            const renameInput = card.querySelector('input[type="text"]');
+            if (renameInput) {
+                renameInput.id = `clip-rename-input-${idx}`;
+                renameInput.onkeydown = (e) => handleRenameKey(e, fn, idx);
+            }
+            const saveBtn = card.querySelector('.clip-save-btn');
+            if (saveBtn) saveBtn.onclick = () => saveRenameClip(fn, idx);
+            const cancelBtn = card.querySelector('.clip-rename-box .btn-outline');
+            if (cancelBtn) cancelBtn.onclick = () => cancelRenameClip(idx);
+            const errDiv = card.querySelector('.clip-rename-box > div:last-child');
+            if (errDiv) errDiv.id = `clip-rename-err-${idx}`;
+            const prog = card.querySelector('.clip-progress-bar');
+            if (prog) prog.id = `clip-prog-${idx}`;
+            const playBtn = card.querySelector('.clip-play-btn');
+            if (playBtn) playBtn.onclick = () => playSoloClip(fn, idx);
         });
         
         if (isPlayingSequence) {
@@ -99,6 +133,169 @@
             }
         });
         return ordered;
+    }
+
+    function createTimelineClipCardHtml(f, idx, detail = {}, totalCount = 1) {
+        const durBadge = detail.duration_formatted ? detail.duration_formatted : `${detail.duration || 0}s`;
+        const isFirst = (idx === 0);
+        const isLast = (idx === totalCount - 1);
+        const startVal = detail.start_time !== undefined ? detail.start_time : 0;
+        const endVal = detail.end_time !== undefined ? detail.end_time : (detail.duration || 0);
+
+        return `
+            <div class="timeline-clip-card" draggable="true" data-filename="${f}" data-index="${idx}" data-start="${startVal}" data-end="${endVal}">
+                <div class="clip-trim-handle trim-left" title="Drag to trim start (pull left to extend, right to shorten)" onmousedown="handleTrimHandleMouseDown(event, 'left')"></div>
+                <div class="clip-trim-handle trim-right" title="Drag to trim end (pull right to extend, left to shorten)" onmousedown="handleTrimHandleMouseDown(event, 'right')"></div>
+                <div class="clip-card-header">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span class="clip-index-badge">#${idx + 1}</span>
+                        <span class="clip-duration-badge" id="clip-dur-${idx}">⏱ ${durBadge}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <button class="clip-duplicate-btn" onclick="duplicateTimelineClip(this, '${f}')" title="Duplicate this clip">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                        <button class="clip-delete-btn" onclick="deleteTimelineClip(this, '${f}')" title="Delete clip from timeline">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="clip-range-badge" id="clip-range-${idx}" style="font-size:0.71rem; font-weight:600; font-family:monospace; color:#1d4ed8; background:#eff6ff; padding:2px 6px; border-radius:4px; margin:4px 0 2px 0; border:1px solid #bfdbfe; text-align:center; ${detail.range_label ? '' : 'display:none;'}">📍 ${detail.range_label || ''}</div>
+                <div class="clip-card-body">
+                    <div class="clip-card-name-row" id="clip-name-display-${idx}" style="display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 4px;">
+                        <div class="clip-card-name" id="clip-name-text-${idx}" title="${f}" style="cursor: pointer; font-weight: 500; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" onclick="startRenameClip('${f}', ${idx})">📹 ${f}</div>
+                        <button class="clip-rename-btn" onclick="startRenameClip('${f}', ${idx})" title="Rename this clip" style="background: none; border: none; cursor: pointer; font-size: 0.8rem; padding: 2px 4px; color: var(--text-secondary); border-radius: 4px; line-height: 1;">✏️</button>
+                    </div>
+                    <div class="clip-rename-box" id="clip-rename-box-${idx}" style="display: none; margin-bottom: 6px;">
+                        <div style="display: flex; align-items: center; gap: 3px;">
+                            <input type="text" id="clip-rename-input-${idx}" value="${f.replace(/\.mp4$/i, '')}" style="width: 100%; min-width: 0; padding: 3px 5px; font-size: 0.78rem; border: 1px solid var(--accent-color); border-radius: 4px; outline: none;" onkeydown="handleRenameKey(event, '${f}', ${idx})">
+                            <button class="btn btn-sm btn-success clip-save-btn" onclick="saveRenameClip('${f}', ${idx})" style="padding: 3px 6px; font-size: 0.72rem; width: auto; line-height: 1;" title="Save name">✔</button>
+                            <button class="btn btn-sm btn-outline" onclick="cancelRenameClip(${idx})" style="padding: 3px 6px; font-size: 0.72rem; width: auto; line-height: 1;" title="Cancel">✖</button>
+                        </div>
+                        <div id="clip-rename-err-${idx}" style="display: none; font-size: 0.7rem; color: var(--error-color); margin-top: 2px;"></div>
+                    </div>
+                    <div class="clip-progress-container">
+                        <div class="clip-progress-bar" id="clip-prog-${idx}"></div>
+                    </div>
+                </div>
+                <div class="clip-card-footer">
+                    <div style="display: flex; gap: 2px;">
+                        <button class="clip-nav-btn btn-shift-left" onclick="shiftTimelineClip(this, -1)" ${isFirst ? 'disabled' : ''} title="Shift Left / Earlier">◀</button>
+                        <button class="clip-nav-btn btn-shift-right" onclick="shiftTimelineClip(this, 1)" ${isLast ? 'disabled' : ''} title="Shift Right / Later">▶</button>
+                    </div>
+                    <div class="clip-card-actions">
+                        <button class="clip-action-btn clip-play-btn" onclick="playSoloClip('${f}', ${idx})" title="Play solo in workspace player">▶ Play</button>
+                        <button class="clip-action-btn clip-review-btn" onclick="openClipReviewByFilename('${f}')" title="Inspect frame-by-frame in modal">🔍 Review</button>
+                        <a href="/download/${currentSession}/${f}" class="clip-action-btn clip-download-btn" download title="Download this clip">⬇</a>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    async function duplicateTimelineClip(btn, filename) {
+        if (!currentSession) return;
+        const card = btn.closest('.timeline-clip-card');
+        if (!card) return;
+
+        btn.disabled = true;
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = `<span style="font-size:0.75rem;">⏳</span>`;
+
+        try {
+            const res = await fetch('/duplicate-clip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: currentSession, filename: filename })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Duplication failed');
+
+            const newFilename = data.new_filename;
+            const origDetail = currentClips.find(c => c.filename === filename) || {};
+            const meta = data.metadata || {};
+
+            const newDetail = {
+                filename: newFilename,
+                index: currentClips.length + 1,
+                duration: origDetail.duration || meta.duration || 0,
+                duration_formatted: origDetail.duration_formatted || meta.duration_formatted || '',
+                start_time: origDetail.start_time !== undefined ? origDetail.start_time : 0,
+                end_time: origDetail.end_time !== undefined ? origDetail.end_time : (origDetail.duration || meta.duration || 0),
+                start_formatted: origDetail.start_formatted || '',
+                end_formatted: origDetail.end_formatted || '',
+                range_label: origDetail.range_label || ''
+            };
+
+            // Insert into currentClips immediately after original
+            const origIdx = currentClips.findIndex(c => c.filename === filename);
+            if (origIdx !== -1) {
+                currentClips.splice(origIdx + 1, 0, newDetail);
+            } else {
+                currentClips.push(newDetail);
+            }
+
+            // Build DOM element
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = createTimelineClipCardHtml(newFilename, origIdx + 1, newDetail, currentClips.length);
+            const newCard = tempDiv.firstElementChild;
+            newCard.style.opacity = '0';
+            newCard.style.transform = 'scale(0.85)';
+            newCard.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+
+            if (card && card.parentNode) {
+                card.insertAdjacentElement('afterend', newCard);
+            } else {
+                const track = document.getElementById('timelineTrack');
+                if (track) track.appendChild(newCard);
+            }
+
+            // Remove empty notice if present
+            const emptyNotice = document.getElementById('timelineEmptyNotice');
+            if (emptyNotice) emptyNotice.remove();
+
+            // Trigger smooth entrance
+            requestAnimationFrame(() => {
+                newCard.style.opacity = '1';
+                newCard.style.transform = 'scale(1)';
+            });
+
+            // Re-index all cards (#1, #2, etc.)
+            updateTimelineIndices();
+
+            // Update header count and total duration
+            const track = document.getElementById('timelineTrack');
+            const cards = track ? track.querySelectorAll('.timeline-clip-card') : [];
+            const countEl = document.getElementById('timelineClipsCountText');
+            if (countEl) {
+                countEl.innerHTML = `<strong>${cards.length} Clip${cards.length === 1 ? '' : 's'}</strong>`;
+            }
+            updateTimelineTotalDuration();
+
+            // Enable sequence / merge buttons if they were disabled
+            const playSeq = document.getElementById('btnPlaySequence');
+            const mergeOnly = document.getElementById('btnMergeOnly');
+            const mergeCrop = document.getElementById('btnMergeCrop');
+            if (playSeq) playSeq.disabled = false;
+            if (mergeOnly) mergeOnly.disabled = false;
+            if (mergeCrop) mergeCrop.disabled = false;
+
+            // Smooth scroll to the newly created clip card
+            setTimeout(() => {
+                newCard.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }, 100);
+
+        } catch (err) {
+            alert(`Could not duplicate clip: ${err.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
     }
 
     async function deleteTimelineClip(btn, filename) {

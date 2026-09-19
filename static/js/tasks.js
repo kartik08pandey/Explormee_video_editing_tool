@@ -209,58 +209,7 @@
 
                 data.files.forEach((f, idx) => {
                     const detail = currentClips.find(cl => cl.filename === f) || {};
-                    const durBadge = detail.duration_formatted ? detail.duration_formatted : `${detail.duration || 0}s`;
-                    const isFirst = (idx === 0);
-                    const isLast = (idx === data.files.length - 1);
-                    const startVal = detail.start_time !== undefined ? detail.start_time : 0;
-                    const endVal = detail.end_time !== undefined ? detail.end_time : (detail.duration || 0);
-
-                    timelineHtml += `
-                        <div class="timeline-clip-card" draggable="true" data-filename="${f}" data-index="${idx}" data-start="${startVal}" data-end="${endVal}">
-                            <div class="clip-trim-handle trim-left" title="Drag to trim start (pull left to extend, right to shorten)" onmousedown="handleTrimHandleMouseDown(event, 'left')"></div>
-                            <div class="clip-trim-handle trim-right" title="Drag to trim end (pull right to extend, left to shorten)" onmousedown="handleTrimHandleMouseDown(event, 'right')"></div>
-                            <div class="clip-card-header">
-                                <div style="display: flex; align-items: center; gap: 6px;">
-                                    <span class="clip-index-badge">#${idx + 1}</span>
-                                    <span class="clip-duration-badge" id="clip-dur-${idx}">⏱ ${durBadge}</span>
-                                </div>
-                                <button class="clip-delete-btn" onclick="deleteTimelineClip(this, '${f}')" title="Delete clip from timeline">
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="3 6 5 6 21 6"></polyline>
-                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                            <div class="clip-range-badge" id="clip-range-${idx}" style="font-size:0.71rem; font-weight:600; font-family:monospace; color:#1d4ed8; background:#eff6ff; padding:2px 6px; border-radius:4px; margin:4px 0 2px 0; border:1px solid #bfdbfe; text-align:center; ${detail.range_label ? '' : 'display:none;'}">📍 ${detail.range_label || ''}</div>
-                            <div class="clip-card-body">
-                                <div class="clip-card-name-row" id="clip-name-display-${idx}" style="display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 4px;">
-                                    <div class="clip-card-name" id="clip-name-text-${idx}" title="${f}" style="cursor: pointer; font-weight: 500; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" onclick="startRenameClip('${f}', ${idx})">📹 ${f}</div>
-                                    <button class="clip-rename-btn" onclick="startRenameClip('${f}', ${idx})" title="Rename this clip" style="background: none; border: none; cursor: pointer; font-size: 0.8rem; padding: 2px 4px; color: var(--text-secondary); border-radius: 4px; line-height: 1;">✏️</button>
-                                </div>
-                                <div class="clip-rename-box" id="clip-rename-box-${idx}" style="display: none; margin-bottom: 6px;">
-                                    <div style="display: flex; align-items: center; gap: 3px;">
-                                        <input type="text" id="clip-rename-input-${idx}" value="${f.replace(/\.mp4$/i, '')}" style="width: 100%; min-width: 0; padding: 3px 5px; font-size: 0.78rem; border: 1px solid var(--accent-color); border-radius: 4px; outline: none;" onkeydown="handleRenameKey(event, '${f}', ${idx})">
-                                        <button class="btn btn-sm btn-success clip-save-btn" onclick="saveRenameClip('${f}', ${idx})" style="padding: 3px 6px; font-size: 0.72rem; width: auto; line-height: 1;" title="Save name">✔</button>
-                                        <button class="btn btn-sm btn-outline" onclick="cancelRenameClip(${idx})" style="padding: 3px 6px; font-size: 0.72rem; width: auto; line-height: 1;" title="Cancel">✖</button>
-                                    </div>
-                                    <div id="clip-rename-err-${idx}" style="display: none; font-size: 0.7rem; color: var(--error-color); margin-top: 2px;"></div>
-                                </div>
-                                <div class="clip-progress-container">
-                                    <div class="clip-progress-bar" id="clip-prog-${idx}"></div>
-                                </div>
-                            </div>
-                            <div class="clip-card-footer">
-                                <div style="display: flex; gap: 2px;">
-                                    <button class="clip-nav-btn btn-shift-left" onclick="shiftTimelineClip(this, -1)" ${isFirst ? 'disabled' : ''} title="Shift Left / Earlier">◀</button>
-                                    <button class="clip-nav-btn btn-shift-right" onclick="shiftTimelineClip(this, 1)" ${isLast ? 'disabled' : ''} title="Shift Right / Later">▶</button>
-                                </div>
-                                <div class="clip-card-actions">
-                                    <button class="clip-action-btn clip-play-btn" onclick="playSoloClip('${f}', ${idx})" title="Play solo in workspace player">▶ Play</button>
-                                    <button class="clip-action-btn clip-review-btn" onclick="openClipReviewByFilename('${f}')" title="Inspect frame-by-frame in modal">🔍 Review</button>
-                                    <a href="/download/${currentSession}/${f}" class="clip-action-btn clip-download-btn" download title="Download this clip">⬇</a>
-                                </div>
-                            </div>
-                        </div>`;
+                    timelineHtml += createTimelineClipCardHtml(f, idx, detail, data.files.length);
                 });
 
                 timelineHtml += `

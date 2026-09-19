@@ -198,6 +198,24 @@
             padding: 2px 6px;
             border-radius: 4px;
         }
+        .clip-duplicate-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: #94a3b8;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 3px 5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            line-height: 1;
+        }
+        .clip-duplicate-btn:hover {
+            background: rgba(56, 189, 248, 0.18);
+            border-color: rgba(56, 189, 248, 0.4);
+            color: #38bdf8;
+        }
         .clip-delete-btn {
             background: transparent;
             border: 1px solid transparent;
