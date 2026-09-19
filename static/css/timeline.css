@@ -27,18 +27,19 @@
         .merged-video-wrapper {
             position: relative;
             width: 100%;
-            max-width: 320px;
+            max-width: 640px;
             max-height: 540px;
-            aspect-ratio: 9/16;
+            aspect-ratio: 16/9;
             background: #000;
-            border-radius: 16px;
-            border: 3px solid #334155;
+            border-radius: 12px;
+            border: 2px solid #334155;
             overflow: hidden;
             margin: 14px auto;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            transition: max-width 0.25s ease, aspect-ratio 0.25s ease;
         }
         .merged-video-wrapper video {
             width: 100%;
@@ -103,6 +104,16 @@
         }
         .btn-merge-download:hover {
             background: linear-gradient(135deg, #059669, #047857);
+        }
+        .btn-merge-crop {
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            color: white;
+            font-weight: 600;
+            padding: 6px 14px;
+            box-shadow: 0 2px 5px rgba(139, 92, 246, 0.25);
+        }
+        .btn-merge-crop:hover {
+            background: linear-gradient(135deg, #7c3aed, #4f46e5);
         }
         .timeline-track-wrapper {
             position: relative;

@@ -1,6 +1,6 @@
 /* --- Dedicated Merge & Stack Engine --- */
     /* --- Dedicated Merge & Stack Engine --- */
-    async function mergeClips() {
+    async function mergeClips(mode = 'merge') {
         if (!currentSession) return;
         const track = document.getElementById('timelineTrack');
         if (!track) return;
@@ -13,22 +13,34 @@
             return;
         }
         
-        const btn = document.getElementById('btnMergeClips');
-        const origText = btn ? btn.innerHTML : '';
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = `⏳ Merging & Stacking...`;
+        const btnOnly = document.getElementById('btnMergeOnly');
+        const btnCrop = document.getElementById('btnMergeCrop');
+        const activeBtn = mode === 'merge_crop' ? btnCrop : btnOnly;
+        
+        const origOnlyText = btnOnly ? btnOnly.innerHTML : '';
+        const origCropText = btnCrop ? btnCrop.innerHTML : '';
+        
+        if (btnOnly) btnOnly.disabled = true;
+        if (btnCrop) btnCrop.disabled = true;
+        
+        if (activeBtn) {
+            activeBtn.innerHTML = mode === 'merge_crop' ? `⏳ Merging & Cropping...` : `⏳ Merging...`;
         }
         
         const mergeSection = document.getElementById('mergeSection');
         if (mergeSection) mergeSection.style.display = 'block';
-        showStatus('mergeStatus', 'info', `Merging ${filesInOrder.length} clip(s), stacking halves, and padding with dark bars into 1080×1920 (9:16)...`);
+        
+        if (mode === 'merge_crop') {
+            showStatus('mergeStatus', 'info', `Merging ${filesInOrder.length} clip(s), stacking halves, and padding with dark bars into 1080×1920 (9:16)...`);
+        } else {
+            showStatus('mergeStatus', 'info', `Merging ${filesInOrder.length} clip(s) sequentially into original dimensions...`);
+        }
         
         try {
             const res = await fetch('/merge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session_id: currentSession, files: filesInOrder })
+                body: JSON.stringify({ session_id: currentSession, files: filesInOrder, mode: mode })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Merge failed');
@@ -41,25 +53,40 @@
             const durInfo = meta && meta.duration_formatted ? ` (Duration: ${meta.duration_formatted})` : '';
             const statusEl = document.getElementById('mergeStatus');
             statusEl.className = 'status-box status-success';
-            statusEl.innerHTML = `✅ Successfully merged and stacked ${filesInOrder.length} clip(s) into <strong>${data.file}</strong> (1080×1920, standard 9:16 vertical)${durInfo}! Preview the video below or click Download.`;
+            
+            const modeDesc = mode === 'merge_crop' 
+                ? ' (1080×1920, standard 9:16 vertical)' 
+                : (meta && meta.width && meta.height ? ` (${meta.width}×${meta.height})` : '');
+            const modeAction = mode === 'merge_crop' ? 'merged and cropped' : 'merged';
+            
+            statusEl.innerHTML = `✅ Successfully ${modeAction} ${filesInOrder.length} clip(s) into <strong>${data.file}</strong>${modeDesc}${durInfo}! Preview the video below or click Download.`;
             statusEl.style.display = 'block';
 
-            // 2. Show & configure top header download button
-            const headerDownloadBtn = document.getElementById('btnDownloadMergedHeader');
-            if (headerDownloadBtn) {
-                headerDownloadBtn.href = downloadUrl;
-                headerDownloadBtn.setAttribute('download', data.file);
-                headerDownloadBtn.style.display = 'inline-flex';
-            }
-
-            // 3. Show preview player card & configure download button
+            // 2. Show preview player card & configure download button
             const previewContainer = document.getElementById('mergePreviewContainer');
             const previewPlayer = document.getElementById('mergedVideoPlayer');
             const previewDownloadBtn = document.getElementById('downloadMergedBtn');
             const metaBadge = document.getElementById('mergedMetaBadge');
+            const titleSpan = document.getElementById('mergedTitleSpan');
+            const wrapper = document.getElementById('mergedVideoWrapper');
+
+            if (titleSpan) {
+                titleSpan.innerHTML = mode === 'merge_crop' ? '🎬 Merged & Cropped Video (9:16)' : '🎬 Merged Video (Original)';
+            }
 
             if (meta && meta.width && meta.height && metaBadge) {
                 metaBadge.innerText = `${meta.width}×${meta.height}`;
+            }
+
+            if (wrapper) {
+                if (mode === 'merge_crop') {
+                    wrapper.style.maxWidth = '340px';
+                    wrapper.style.aspectRatio = '9/16';
+                } else {
+                    const aspect = (meta && meta.width && meta.height) ? `${meta.width}/${meta.height}` : '16/9';
+                    wrapper.style.maxWidth = '640px';
+                    wrapper.style.aspectRatio = aspect;
+                }
             }
 
             if (previewDownloadBtn) {
@@ -80,9 +107,13 @@
         } catch (err) {
             showStatus('mergeStatus', 'error', err.message);
         } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = origText;
+            if (btnOnly) {
+                btnOnly.disabled = false;
+                btnOnly.innerHTML = origOnlyText;
+            }
+            if (btnCrop) {
+                btnCrop.disabled = false;
+                btnCrop.innerHTML = origCropText;
             }
         }
     }
@@ -158,12 +189,12 @@
                             <button id="btnRestartSequence" class="btn btn-outline btn-sm" onclick="restartSequence()">
                                 ⏮ Restart
                             </button>
-                            <button id="btnMergeClips" class="btn btn-merge-download btn-sm" onclick="mergeClips()">
-                                ⚡ Merge Clips
+                            <button id="btnMergeOnly" class="btn btn-merge-download btn-sm" onclick="mergeClips('merge')" title="Merge all clips in original format and aspect ratio">
+                                ⚡ Only Merge
                             </button>
-                            <a id="btnDownloadMergedHeader" class="btn btn-success btn-sm" href="#" download style="display:none; text-decoration:none; font-weight:600; width:auto;">
-                                ⬇ Download Merged Video
-                            </a>
+                            <button id="btnMergeCrop" class="btn btn-merge-crop btn-sm" onclick="mergeClips('merge_crop')" title="Merge all clips and format/stack into 9:16 vertical video">
+                                📐 Merge + Crop
+                            </button>
                             <a href="/download-zip/${currentSession}" class="btn btn-outline btn-sm" download style="text-decoration:none;">
                                 📦 Download ZIP
                             </a>
@@ -240,8 +271,6 @@
                     const prevP = document.getElementById('mergedVideoPlayer');
                     if (prevP) { prevP.pause(); prevP.removeAttribute('src'); }
                 }
-                const headerDl = document.getElementById('btnDownloadMergedHeader');
-                if (headerDl) headerDl.style.display = 'none';
 
                 isPlayingSequence = false;
                 activeTimelineIndex = -1;

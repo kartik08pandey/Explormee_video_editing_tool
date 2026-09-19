@@ -480,6 +480,7 @@ def merge_clips():
     data = request.json
     session_id = secure_filename(data.get('session_id', ''))
     files = data.get('files', [])
+    mode = data.get('mode', 'merge')  # 'merge' (Only Merge) or 'merge_crop' (Merge + Crop)
     
     if len(files) < 1:
         return jsonify({'error': 'At least one clip is required to merge'}), 400
@@ -502,42 +503,61 @@ def merge_clips():
         for sf in secure_files:
             f.write(f"file '{sf}'\n")
             
-    out_name = f"merged_{int(time.time())}.mp4"
+    timestamp = int(time.time())
+    if mode == 'merge_crop':
+        out_name = f"merged_cropped_{timestamp}.mp4"
+    else:
+        out_name = f"merged_{timestamp}.mp4"
     out_path = os.path.join(session_dir, out_name)
     
-    # 1. Scale/crop video to 1920x540
-    # 2. Cut in middle into two equal 960x540 halves: Left (x=0..960), Right (x=960..1920)
-    # 3. Stack vertically: Right half on top, Left half on bottom -> 960x1080
-    # 4. Scale to 1080 width (1080x1216) and pad to 1080x1920 (standard 9:16) with dark top and bottom padding
-    filter_complex = (
-        "[0:v]scale=w=1920:h=540:force_original_aspect_ratio=increase,"
-        "crop=1920:540,split=2[left_full][right_full];"
-        "[left_full]crop=960:540:0:0[left];"
-        "[right_full]crop=960:540:960:0[right];"
-        "[right][left]vstack=inputs=2[stacked];"
-        "[stacked]scale=1080:1216:flags=lanczos,pad=1080:1920:0:352:color=black,setsar=1[outv]"
-    )
-    
-    cmd = [
-        'ffmpeg', '-y',
-        '-f', 'concat',
-        '-safe', '0',
-        '-i', concat_list_path,
-        '-filter_complex', filter_complex,
-        '-map', '[outv]',
-        '-map', '0:a?',
-        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
-        '-pix_fmt', 'yuv420p',
-        '-c:a', 'aac', '-b:a', '192k',
-        out_path
-    ]
+    if mode == 'merge_crop':
+        # 1. Scale/crop video to 1920x540
+        # 2. Cut in middle into two equal 960x540 halves: Left (x=0..960), Right (x=960..1920)
+        # 3. Stack vertically: Right half on top, Left half on bottom -> 960x1080
+        # 4. Scale to 1080 width (1080x1216) and pad to 1080x1920 (standard 9:16) with dark top and bottom padding
+        filter_complex = (
+            "[0:v]scale=w=1920:h=540:force_original_aspect_ratio=increase,"
+            "crop=1920:540,split=2[left_full][right_full];"
+            "[left_full]crop=960:540:0:0[left];"
+            "[right_full]crop=960:540:960:0[right];"
+            "[right][left]vstack=inputs=2[stacked];"
+            "[stacked]scale=1080:1216:flags=lanczos,pad=1080:1920:0:352:color=black,setsar=1[outv]"
+        )
+        cmd = [
+            'ffmpeg', '-y',
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', concat_list_path,
+            '-filter_complex', filter_complex,
+            '-map', '[outv]',
+            '-map', '0:a?',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+            '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', '-b:a', '192k',
+            out_path
+        ]
+    else:
+        # Only Merge: Concatenate sequentially preserving original dimensions & aspect ratio
+        cmd = [
+            'ffmpeg', '-y',
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', concat_list_path,
+            '-map', '0:v',
+            '-map', '0:a?',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+            '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', '-b:a', '192k',
+            out_path
+        ]
     
     try:
         subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
         meta = get_video_metadata(out_path)
-        return jsonify({'message': 'Success', 'file': out_name, 'metadata': meta})
+        return jsonify({'message': 'Success', 'file': out_name, 'mode': mode, 'metadata': meta})
     except subprocess.CalledProcessError as e:
-        return jsonify({'error': f"Merging failed. Error: {e.stderr.decode()[-200:]}"}), 500
+        action_name = "Merging & Cropping" if mode == 'merge_crop' else "Merging"
+        return jsonify({'error': f"{action_name} failed. Error: {e.stderr.decode()[-200:]}"}), 500
 
 @app.route('/crop', methods=['POST'])
 def crop_video():

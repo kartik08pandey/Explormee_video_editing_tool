@@ -56,7 +56,7 @@
             updateSequencePlayButton();
             activeTimelineIndex = -1;
             highlightTimelineCard(-1);
-            showStatus('splitStatus', 'success', 'Sequence playback complete! Click "⚡ Merge & Download Sequence" to export.');
+            showStatus('splitStatus', 'success', 'Sequence playback complete! Click "⚡ Only Merge" or "📐 Merge + Crop" to export.');
             return;
         }
         
