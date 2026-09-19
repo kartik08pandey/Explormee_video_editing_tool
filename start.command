@@ -56,16 +56,24 @@ else
     echo "[2/4] FFmpeg is ready."
 fi
 
-# 4. Setup / Activate Virtual Environment
-if [ -f "venv/bin/activate" ]; then
-    source venv/bin/activate
-else
-    echo "[3/4] Setting up Python environment (first-time setup, please wait)..."
+# 4. Setup / Verify Virtual Environment & Dependencies
+VENV_PY="./venv/bin/python"
+VENV_PIP="./venv/bin/pip"
+
+if [ ! -f "$VENV_PY" ]; then
+    echo "[3/4] Creating Python virtual environment (first-time setup)..."
     python3 -m venv venv
-    source venv/bin/activate
-    echo "  Installing required dependencies..."
-    pip install -r requirements.txt --quiet
-    echo "  [OK] Dependencies ready!"
+fi
+
+# Verify if Flask and Werkzeug are installed and runnable in the venv
+if ! "$VENV_PY" -c "import flask, werkzeug" &> /dev/null; then
+    echo "[3/4] Installing / repairing dependencies in virtual environment..."
+    "$VENV_PIP" install --upgrade pip --quiet 2>/dev/null || true
+    "$VENV_PIP" install -r requirements.txt
+    echo "  [OK] Dependencies installed successfully!"
+    echo ""
+else
+    echo "[3/4] Python environment is ready."
     echo ""
 fi
 
@@ -80,5 +88,6 @@ echo ""
 # Open default browser after 2 seconds
 (sleep 2 && open "http://127.0.0.1:5050") &
 
-# Start Flask
-python3 app.py
+# Start Flask using the virtual environment python directly
+exec "$VENV_PY" app.py
+
