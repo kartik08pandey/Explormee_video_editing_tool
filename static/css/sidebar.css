@@ -1,4 +1,5 @@
 /* Sidebar Styles */
+        .sidebar { overflow-y: auto; min-height: 0; }
 /* Header */
         /* Header */
         .header { margin-bottom: 24px; }

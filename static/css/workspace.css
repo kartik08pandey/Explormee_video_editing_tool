@@ -1,4 +1,10 @@
 /* Workspace Layout & Video Player */
+        .workspace { overflow-y: auto; min-height: 0; }
+        #splitOutputs { overflow-y: auto; max-height: 45vh; }
+        #splitOutputs::-webkit-scrollbar { width: 6px; }
+        #splitOutputs::-webkit-scrollbar-track { background: transparent; }
+        #splitOutputs::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        #splitOutputs::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         /* Video & Grid */
         .video-container {
             position: relative;
