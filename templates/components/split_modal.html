@@ -1,0 +1,92 @@
+<!-- Multi-Marker Split / Razor Clip Modal Dialog -->
+<div id="splitClipModal" class="modal-backdrop" style="display: none;" onclick="handleSplitModalBackdropClick(event)">
+    <div class="modal-dialog" style="max-width: 720px;">
+        <div class="modal-header">
+            <div>
+                <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.25rem;">✂️</span>
+                    <span id="splitModalClipName">Split Clip</span>
+                </div>
+                <div id="splitModalClipMeta" class="modal-subtitle">Add cut marks on the timeline to split into multiple clips</div>
+            </div>
+            <button class="modal-close-btn" onclick="closeSplitClipModal()" title="Close (Esc)">&times;</button>
+        </div>
+
+        <div class="modal-video-container" style="background: #000; border-radius: 8px; overflow: hidden; margin-bottom: 12px; position: relative; max-height: 330px; display: flex; align-items: center; justify-content: center;">
+            <video id="splitModalVideoPlayer" style="width: 100%; max-height: 330px; object-fit: contain;" playsinline></video>
+        </div>
+
+        <!-- Scrubber & Interactive Markers Section -->
+        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.82rem; color: #94a3b8; font-weight: 500;">Current Position:</span>
+                <span style="font-family: monospace; font-size: 0.95rem; font-weight: 700; color: #f59e0b;">
+                    <span id="splitCurrentTimeDisplay">00:00.00</span> / <span id="splitTotalTimeDisplay">00:00.00</span>
+                </span>
+            </div>
+
+            <!-- Scrubber bar with visual marker pins -->
+            <div class="split-scrubber-track-wrapper" style="position: relative; margin-top: 14px; margin-bottom: 12px;">
+                <div id="splitMarkersPinTrack" class="split-markers-pin-track" style="position: absolute; top: -14px; left: 0; right: 0; height: 16px; pointer-events: none;"></div>
+                <input type="range" id="splitScrubber" min="0" max="10" step="0.05" value="0" style="width: 100%; cursor: pointer; accent-color: #f59e0b; margin: 0;" oninput="onSplitScrubberInput(this.value)" onchange="onSplitScrubberChange(this.value)">
+            </div>
+
+            <!-- Fine-tuning & Mark Point Actions -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; gap: 4px;">
+                    <button class="btn btn-outline btn-sm" onclick="nudgeSplitScrubber(-1.0)" title="Step back 1 second">-1.0s</button>
+                    <button class="btn btn-outline btn-sm" onclick="nudgeSplitScrubber(-0.1)" title="Step back 1 frame / 0.1s">-0.1s</button>
+                </div>
+                
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <button id="btnSplitModalPlayToggle" class="btn btn-outline btn-sm" onclick="toggleSplitModalPlayback()" style="min-width: 85px; font-weight: 600;">
+                        ▶ Play
+                    </button>
+                    <button class="btn btn-sm" onclick="addSplitMarker()" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.5); font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Drop a cut marker at current playhead (Shortcut: M)">
+                        📍 Mark Cut Point
+                    </button>
+                </div>
+
+                <div style="display: flex; gap: 4px;">
+                    <button class="btn btn-outline btn-sm" onclick="nudgeSplitScrubber(0.1)" title="Step forward 1 frame / 0.1s">+0.1s</button>
+                    <button class="btn btn-outline btn-sm" onclick="nudgeSplitScrubber(1.0)" title="Step forward 1 second">+1.0s</button>
+                </div>
+            </div>
+
+            <!-- Active Markers Chips List -->
+            <div style="margin-top: 10px; border-top: 1px dashed #334155; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;" id="splitMarkersChipContainer">
+                    <!-- Populated dynamically via JS -->
+                </div>
+                <button id="btnClearAllMarkers" class="btn btn-outline btn-sm" onclick="clearSplitMarkers()" style="display: none; padding: 2px 8px; font-size: 0.72rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.4);">
+                    Clear Marks
+                </button>
+            </div>
+        </div>
+
+        <!-- Resulting Clips Preview Grid -->
+        <div style="margin-bottom: 14px;">
+            <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                <span>Resulting Clips Preview:</span>
+                <span id="splitResultCountBadge" style="background: #1e293b; color: #38bdf8; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; border: 1px solid #334155;">1 Clip</span>
+            </div>
+            <div id="splitSegmentsGrid" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;">
+                <!-- Populated dynamically via JS -->
+            </div>
+        </div>
+
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+            <button class="btn btn-outline btn-sm" onclick="closeSplitClipModal()">Cancel</button>
+            <button id="btnConfirmSplitClip" class="btn btn-sm" style="background: #f59e0b; color: #000; font-weight: 700; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; transition: background 0.15s ease;" onclick="executeSplitClip()">
+                ✂️ Split into 2 Clips
+            </button>
+        </div>
+
+        <div class="modal-hints" style="margin-top: 10px; font-size: 0.75rem; color: #64748b; display: flex; justify-content: center; gap: 14px;">
+            <span><kbd style="background: #1e293b; padding: 2px 5px; border-radius: 3px; border: 1px solid #334155;">M</kbd> Mark Cut Point</span>
+            <span><kbd style="background: #1e293b; padding: 2px 5px; border-radius: 3px; border: 1px solid #334155;">Space</kbd> Play/Pause</span>
+            <span><kbd style="background: #1e293b; padding: 2px 5px; border-radius: 3px; border: 1px solid #334155;">←</kbd> <kbd style="background: #1e293b; padding: 2px 5px; border-radius: 3px; border: 1px solid #334155;">→</kbd> Step ±0.1s</span>
+            <span><kbd style="background: #1e293b; padding: 2px 5px; border-radius: 3px; border: 1px solid #334155;">Esc</kbd> Cancel</span>
+        </div>
+    </div>
+</div>

@@ -539,6 +539,182 @@ def trim_clip():
         'range_label': range_label
     })
 
+@app.route('/split-clip', methods=['POST'])
+def split_clip():
+    data = request.json
+    session_id = secure_filename(data.get('session_id', ''))
+    filename = secure_filename(data.get('filename', ''))
+    source_filename = secure_filename(data.get('source_filename', ''))
+    
+    if not session_id or not filename:
+        return jsonify({'error': 'Missing session_id or filename'}), 400
+
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
+    if not os.path.exists(session_dir):
+        return jsonify({'error': 'Session not found'}), 404
+
+    clip_path = os.path.join(session_dir, filename)
+    if not os.path.exists(clip_path):
+        return jsonify({'error': f'Clip "{filename}" not found'}), 404
+
+    clip_meta = get_video_metadata(clip_path)
+    clip_dur = clip_meta.get('duration', 0.0) if clip_meta else 0.0
+    if clip_dur <= 0:
+        return jsonify({'error': 'Could not determine clip duration'}), 400
+
+    try:
+        start_time = float(data.get('start_time', 0.0))
+        end_time = float(data.get('end_time', 0.0))
+    except (ValueError, TypeError):
+        start_time = 0.0
+        end_time = clip_dur
+
+    raw_points = data.get('split_points', [])
+    if not raw_points and 'split_time' in data:
+        raw_points = [data.get('split_time')]
+
+    parsed_points = []
+    for pt in raw_points:
+        try:
+            val = float(pt)
+            if val > 0:
+                parsed_points.append(round(val, 3))
+        except (ValueError, TypeError):
+            pass
+
+    parsed_points = sorted(list(set(parsed_points)))
+
+    MIN_SLICE = 0.35
+    valid_points = []
+    last_pt = 0.0
+    for pt in parsed_points:
+        if (pt - last_pt) >= MIN_SLICE and (clip_dur - pt) >= MIN_SLICE:
+            valid_points.append(pt)
+            last_pt = pt
+
+    if len(valid_points) == 0:
+        return jsonify({'error': f'No valid split points. Each segment must be at least {MIN_SLICE}s.'}), 400
+
+    # Boundaries: [0, p1, p2, ..., clip_dur]
+    boundaries = [0.0] + valid_points + [clip_dur]
+
+    source_path = os.path.join(session_dir, source_filename) if source_filename else None
+    has_valid_source = source_path and os.path.exists(source_path)
+
+    base, ext = os.path.splitext(filename)
+    match = re.match(r'^(.*?)(?:_part(\d+))?$', base)
+    clean_base = match.group(1) if match and match.group(1) else base
+    part_counter = int(match.group(2)) + 1 if match and match.group(2) else 2
+
+    # Plan intervals
+    plan = []
+    for i in range(len(boundaries) - 1):
+        seg_start = boundaries[i]
+        seg_end = boundaries[i + 1]
+        seg_dur = round(seg_end - seg_start, 3)
+
+        if i == 0:
+            target_fn = filename
+        else:
+            cand = f"{clean_base}_part{part_counter}{ext}"
+            while os.path.exists(os.path.join(session_dir, cand)) or any(p['filename'] == cand for p in plan):
+                part_counter += 1
+                cand = f"{clean_base}_part{part_counter}{ext}"
+            target_fn = cand
+            part_counter += 1
+
+        temp_fn = f"split_tmp_{uuid.uuid4().hex[:8]}.mp4"
+        temp_path = os.path.join(session_dir, temp_fn)
+
+        plan.append({
+            'index': i,
+            'filename': target_fn,
+            'temp_path': temp_path,
+            'final_path': os.path.join(session_dir, target_fn),
+            'seg_start': seg_start,
+            'seg_end': seg_end,
+            'duration': seg_dur
+        })
+
+    # Execute FFmpeg encoding for each slice
+    created_temps = []
+    try:
+        for item in plan:
+            temp_p = item['temp_path']
+            created_temps.append(temp_p)
+            dur = str(item['duration'])
+
+            if has_valid_source and end_time > start_time:
+                src_seek = str(round(start_time + item['seg_start'], 3))
+                cmd = [
+                    'ffmpeg', '-y',
+                    '-ss', src_seek,
+                    '-i', source_path,
+                    '-t', dur,
+                    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+                    '-c:a', 'aac', '-b:a', '192k',
+                    '-avoid_negative_ts', 'make_zero',
+                    '-pix_fmt', 'yuv420p',
+                    temp_p
+                ]
+            else:
+                clip_seek = str(round(item['seg_start'], 3))
+                cmd = [
+                    'ffmpeg', '-y',
+                    '-ss', clip_seek,
+                    '-i', clip_path,
+                    '-t', dur,
+                    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+                    '-c:a', 'aac', '-b:a', '192k',
+                    '-avoid_negative_ts', 'make_zero',
+                    '-pix_fmt', 'yuv420p',
+                    temp_p
+                ]
+
+            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+
+    except subprocess.CalledProcessError as e:
+        for p in created_temps:
+            if os.path.exists(p):
+                try: os.remove(p)
+                except OSError: pass
+        return jsonify({'error': f"FFmpeg split failed: {e.stderr.decode()[-200:]}"}), 500
+
+    # Atomic move temporary files into final paths
+    for item in plan:
+        target = item['final_path']
+        try:
+            os.replace(item['temp_path'], target)
+        except Exception:
+            time.sleep(0.1)
+            os.replace(item['temp_path'], target)
+
+    # Collect result metadata
+    parts = []
+    for item in plan:
+        meta = get_video_metadata(item['final_path']) or {}
+        actual_dur = round(meta.get('duration', item['duration']), 2)
+        abs_start = round(start_time + item['seg_start'], 2)
+        abs_end = round(start_time + item['seg_end'], 2)
+
+        parts.append({
+            'filename': item['filename'],
+            'duration': actual_dur,
+            'duration_formatted': f"{actual_dur:.2f}s",
+            'start_time': abs_start,
+            'end_time': abs_end,
+            'start_formatted': format_timestamp(abs_start),
+            'end_formatted': format_timestamp(abs_end),
+            'range_label': f"{format_timestamp(abs_start)} -> {format_timestamp(abs_end)}"
+        })
+
+    return jsonify({
+        'message': f"Split into {len(parts)} clips successfully",
+        'parts': parts,
+        'part1': parts[0],
+        'part2': parts[1] if len(parts) > 1 else parts[0]
+    })
+
 @app.route('/merge', methods=['POST'])
 def merge_clips():
     data = request.json

@@ -165,6 +165,8 @@
                 if (errDiv) errDiv.id = `clip-rename-err-${id}-${idx}`;
                 const prog = card.querySelector('.clip-progress-bar');
                 if (prog) prog.id = `clip-prog-${id}-${idx}`;
+                const splitBtn = card.querySelector('.clip-split-btn');
+                if (splitBtn) splitBtn.onclick = () => openSplitClipModal(fn, idx);
                 const playBtn = card.querySelector('.clip-play-btn');
                 if (playBtn) playBtn.onclick = () => playSoloClip(fn, idx);
             });
@@ -379,6 +381,15 @@
                                 <line x1="12" y1="15" x2="12" y2="3"></line>
                             </svg>
                         </a>
+                        <button class="clip-split-btn" onclick="openSplitClipModal('${f}', ${idx})" title="Split this clip (✂️)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="6" cy="6" r="3"></circle>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+                                <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+                                <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
+                            </svg>
+                        </button>
                         <button class="clip-duplicate-btn" onclick="duplicateTimelineClip(this, '${f}')" title="Duplicate this clip">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -864,3 +875,445 @@
             showStatus('splitStatus', 'error', `Trimming failed: ${err.message}`);
         }
     }
+
+
+/* --- Clip Razor / Split Tool Logic --- */
+    let activeSplitClipFilename = null;
+    let activeSplitClipIndex = -1;
+    let activeSplitTimelineId = null;
+    let activeSplitClipDuration = 0.0;
+    let activeSplitClipStartTime = 0.0;
+    let activeSplitClipEndTime = 0.0;
+    let activeSplitMarkers = [];
+
+    function openSplitClipModal(filename, index, initialTime = null) {
+        if (!currentSession) return;
+
+        const card = document.querySelector(`.timeline-clip-card[data-filename="${filename}"]`);
+        const container = card ? card.closest('.timeline-container') : null;
+        const timelineId = container ? container.getAttribute('data-timeline-id') : 'timeline-1';
+
+        activeSplitClipFilename = filename;
+        activeSplitClipIndex = index;
+        activeSplitTimelineId = timelineId;
+        activeSplitMarkers = [];
+
+        const detail = currentClips.find(c => c.filename === filename) || {};
+        const cardStart = card ? parseFloat(card.getAttribute('data-start') || '0') : 0;
+        const cardEnd = card ? parseFloat(card.getAttribute('data-end') || '0') : 0;
+
+        activeSplitClipStartTime = (cardStart !== undefined && !isNaN(cardStart)) ? cardStart : (detail.start_time || 0);
+        activeSplitClipEndTime = (cardEnd > activeSplitClipStartTime) ? cardEnd : (detail.end_time || (activeSplitClipStartTime + (detail.duration || 10)));
+        
+        activeSplitClipDuration = (activeSplitClipEndTime > activeSplitClipStartTime) 
+            ? (activeSplitClipEndTime - activeSplitClipStartTime) 
+            : (detail.duration || 10.0);
+
+        const modal = document.getElementById('splitClipModal');
+        if (!modal) return;
+
+        const nameEl = document.getElementById('splitModalClipName');
+        const metaEl = document.getElementById('splitModalClipMeta');
+        const scrubber = document.getElementById('splitScrubber');
+        const video = document.getElementById('splitModalVideoPlayer');
+
+        if (nameEl) nameEl.innerText = `Split: ${filename}`;
+        if (metaEl) metaEl.innerText = `Clip Duration: ${activeSplitClipDuration.toFixed(2)}s • Add cut marks on timeline`;
+
+        if (scrubber) {
+            scrubber.min = '0';
+            scrubber.max = activeSplitClipDuration.toFixed(2);
+            scrubber.step = '0.05';
+            scrubber.value = '0';
+        }
+
+        if (initialTime !== null && initialTime >= 0.35 && initialTime <= (activeSplitClipDuration - 0.35)) {
+            activeSplitMarkers.push(parseFloat(initialTime.toFixed(2)));
+        }
+
+        if (video) {
+            video.src = `/media/${currentSession}/${filename}?t=${Date.now()}`;
+            video.load();
+            video.currentTime = parseFloat(scrubber ? scrubber.value : '0');
+            
+            video.onloadedmetadata = () => {
+                if (video.duration && !isNaN(video.duration) && video.duration > 0.5) {
+                    activeSplitClipDuration = video.duration;
+                    if (scrubber) {
+                        scrubber.max = activeSplitClipDuration.toFixed(2);
+                    }
+                }
+                updateSplitModalDisplays();
+            };
+
+            video.ontimeupdate = () => {
+                if (!video.paused && scrubber) {
+                    scrubber.value = Math.min(activeSplitClipDuration, video.currentTime).toFixed(2);
+                    updateCurrentTimeOnly();
+                }
+            };
+        }
+
+        updateSplitModalDisplays();
+        modal.style.display = 'flex';
+    }
+
+    function addSplitMarker(timestamp = null) {
+        const video = document.getElementById('splitModalVideoPlayer');
+        const scrubber = document.getElementById('splitScrubber');
+        
+        let cutTime = (timestamp !== null) ? timestamp : (video ? video.currentTime : (scrubber ? parseFloat(scrubber.value) : 0));
+        cutTime = parseFloat(cutTime.toFixed(2));
+
+        const MIN_SLICE = 0.35;
+        if (cutTime < MIN_SLICE) {
+            alert(`Cut points must be at least ${MIN_SLICE}s from the start of the clip.`);
+            return;
+        }
+        if (cutTime > (activeSplitClipDuration - MIN_SLICE)) {
+            alert(`Cut points must be at least ${MIN_SLICE}s before the end of the clip.`);
+            return;
+        }
+
+        for (let existing of activeSplitMarkers) {
+            if (Math.abs(existing - cutTime) < MIN_SLICE) {
+                alert(`Cut points must be at least ${MIN_SLICE}s apart from each other.`);
+                return;
+            }
+        }
+
+        activeSplitMarkers.push(cutTime);
+        activeSplitMarkers.sort((a, b) => a - b);
+        updateSplitModalDisplays();
+    }
+
+    function removeSplitMarker(idx) {
+        if (idx >= 0 && idx < activeSplitMarkers.length) {
+            activeSplitMarkers.splice(idx, 1);
+            updateSplitModalDisplays();
+        }
+    }
+
+    function clearSplitMarkers() {
+        activeSplitMarkers = [];
+        updateSplitModalDisplays();
+    }
+
+    function seekSplitTo(timestamp) {
+        const video = document.getElementById('splitModalVideoPlayer');
+        const scrubber = document.getElementById('splitScrubber');
+        if (video) video.currentTime = timestamp;
+        if (scrubber) scrubber.value = timestamp.toFixed(2);
+        updateCurrentTimeOnly();
+    }
+
+    function updateCurrentTimeOnly() {
+        const scrubber = document.getElementById('splitScrubber');
+        const curVal = scrubber ? parseFloat(scrubber.value) : 0;
+        const totalVal = activeSplitClipDuration || 0;
+
+        const currentEl = document.getElementById('splitCurrentTimeDisplay');
+        const totalEl = document.getElementById('splitTotalTimeDisplay');
+        if (currentEl) currentEl.innerText = formatTimeSec(curVal);
+        if (totalEl) totalEl.innerText = formatTimeSec(totalVal);
+    }
+
+    function updateSplitModalDisplays() {
+        updateCurrentTimeOnly();
+
+        const totalVal = activeSplitClipDuration || 0;
+
+        // 1. Render Marker Pins over Scrubber
+        const pinTrack = document.getElementById('splitMarkersPinTrack');
+        if (pinTrack) {
+            pinTrack.innerHTML = '';
+            if (totalVal > 0) {
+                activeSplitMarkers.forEach(m => {
+                    const pct = (m / totalVal) * 100;
+                    const pin = document.createElement('div');
+                    pin.className = 'split-marker-pin';
+                    pin.style.left = `${pct}%`;
+                    pin.title = `Cut at ${formatTimeSec(m)} (Click to seek)`;
+                    pin.onclick = (e) => {
+                        e.stopPropagation();
+                        seekSplitTo(m);
+                    };
+                    pinTrack.appendChild(pin);
+                });
+            }
+        }
+
+        // 2. Render Active Marker Chips
+        const chipsContainer = document.getElementById('splitMarkersChipContainer');
+        const clearBtn = document.getElementById('btnClearAllMarkers');
+        if (chipsContainer) {
+            chipsContainer.innerHTML = '';
+            if (activeSplitMarkers.length === 0) {
+                chipsContainer.innerHTML = `<span style="font-size: 0.76rem; color: #64748b;">No cut marks yet. Position the playhead and click <strong>"📍 Mark Cut Point"</strong> (or press <strong>M</strong>).</span>`;
+                if (clearBtn) clearBtn.style.display = 'none';
+            } else {
+                if (clearBtn) clearBtn.style.display = 'inline-flex';
+                activeSplitMarkers.forEach((m, idx) => {
+                    const chip = document.createElement('div');
+                    chip.className = 'split-marker-chip';
+                    chip.title = `Click to seek to ${formatTimeSec(m)}`;
+                    chip.onclick = () => seekSplitTo(m);
+                    chip.innerHTML = `<span>📍 ${formatTimeSec(m)}</span><span class="split-marker-chip-del" onclick="event.stopPropagation(); removeSplitMarker(${idx})" title="Remove this cut mark">&times;</span>`;
+                    chipsContainer.appendChild(chip);
+                });
+            }
+        }
+
+        // 3. Render Resulting Pieces Breakdown Grid
+        const grid = document.getElementById('splitSegmentsGrid');
+        const countBadge = document.getElementById('splitResultCountBadge');
+        const confirmBtn = document.getElementById('btnConfirmSplitClip');
+
+        const boundaries = [0.0, ...activeSplitMarkers, totalVal];
+        const numPieces = boundaries.length - 1;
+
+        if (grid) {
+            grid.innerHTML = '';
+            const colors = ['#38bdf8', '#a855f7', '#22c55e', '#f59e0b', '#ec4899', '#06b6d4'];
+
+            for (let i = 0; i < numPieces; i++) {
+                const segStart = boundaries[i];
+                const segEnd = boundaries[i + 1];
+                const segDur = Math.max(0, segEnd - segStart);
+                const absStart = activeSplitClipStartTime + segStart;
+                const absEnd = activeSplitClipStartTime + segEnd;
+                const col = colors[i % colors.length];
+
+                const card = document.createElement('div');
+                card.className = 'split-segment-card';
+                card.innerHTML = `
+                    <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: ${col}; font-weight: 700; margin-bottom: 2px;">
+                        Piece #${i + 1}
+                    </div>
+                    <div style="font-family: monospace; font-size: 0.95rem; font-weight: 700; color: #f1f5f9;">
+                        ${segDur.toFixed(2)}s
+                    </div>
+                    <div style="font-size: 0.72rem; color: #94a3b8; font-family: monospace; margin-top: 2px;">
+                        ${formatTimeSec(absStart)} ➔ ${formatTimeSec(absEnd)}
+                    </div>
+                `;
+                grid.appendChild(card);
+            }
+        }
+
+        if (countBadge) {
+            countBadge.innerText = `${numPieces} Clip${numPieces === 1 ? ' (No cuts)' : 's'}`;
+        }
+
+        if (confirmBtn) {
+            if (activeSplitMarkers.length === 0) {
+                confirmBtn.innerHTML = `✂️ Add at least 1 Cut Mark`;
+                confirmBtn.disabled = true;
+                confirmBtn.style.opacity = '0.6';
+            } else {
+                confirmBtn.innerHTML = `✂️ Split into ${numPieces} Clips`;
+                confirmBtn.disabled = false;
+                confirmBtn.style.opacity = '1';
+            }
+        }
+    }
+
+    function onSplitScrubberInput(val) {
+        const video = document.getElementById('splitModalVideoPlayer');
+        const num = parseFloat(val);
+        if (video && !isNaN(num)) {
+            if (!video.paused) video.pause();
+            video.currentTime = num;
+        }
+        updateCurrentTimeOnly();
+    }
+
+    function onSplitScrubberChange(val) {
+        onSplitScrubberInput(val);
+    }
+
+    function nudgeSplitScrubber(delta) {
+        const scrubber = document.getElementById('splitScrubber');
+        if (!scrubber) return;
+
+        const min = parseFloat(scrubber.min) || 0;
+        const max = parseFloat(scrubber.max) || activeSplitClipDuration;
+        let current = parseFloat(scrubber.value) || min;
+
+        let target = Math.max(min, Math.min(max, current + delta));
+        scrubber.value = target.toFixed(2);
+        onSplitScrubberInput(scrubber.value);
+    }
+
+    function toggleSplitModalPlayback() {
+        const video = document.getElementById('splitModalVideoPlayer');
+        const btn = document.getElementById('btnSplitModalPlayToggle');
+        if (!video) return;
+
+        if (video.paused) {
+            video.play().catch(() => {});
+            if (btn) btn.innerHTML = `⏸ Pause`;
+        } else {
+            video.pause();
+            if (btn) btn.innerHTML = `▶ Play`;
+        }
+    }
+
+    function handleSplitModalBackdropClick(e) {
+        if (e.target.id === 'splitClipModal') {
+            closeSplitClipModal();
+        }
+    }
+
+    function closeSplitClipModal() {
+        const modal = document.getElementById('splitClipModal');
+        if (modal) modal.style.display = 'none';
+
+        const video = document.getElementById('splitModalVideoPlayer');
+        if (video) {
+            video.pause();
+            video.removeAttribute('src');
+        }
+        const btn = document.getElementById('btnSplitModalPlayToggle');
+        if (btn) btn.innerHTML = `▶ Play`;
+
+        const confirmBtn = document.getElementById('btnConfirmSplitClip');
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = `✂️ Split into Clips`;
+        }
+    }
+
+    async function executeSplitClip() {
+        if (!currentSession || !activeSplitClipFilename) return;
+
+        if (activeSplitMarkers.length === 0) {
+            alert("Please add at least one cut mark using '📍 Mark Cut Point' (or press M).");
+            return;
+        }
+
+        const confirmBtn = document.getElementById('btnConfirmSplitClip');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = `⏳ Slicing with FFmpeg...`;
+        }
+
+        try {
+            const res = await fetch('/split-clip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: currentSession,
+                    filename: activeSplitClipFilename,
+                    source_filename: currentFilename,
+                    split_points: activeSplitMarkers,
+                    start_time: activeSplitClipStartTime,
+                    end_time: activeSplitClipEndTime
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to split clip');
+
+            const parts = data.parts || [data.part1, data.part2];
+            if (!parts || parts.length < 2) throw new Error('Invalid response from server');
+
+            const card1 = document.querySelector(`.timeline-clip-card[data-filename="${activeSplitClipFilename}"]`);
+            const container = card1 ? card1.closest('.timeline-container') : null;
+            const timelineId = container ? container.getAttribute('data-timeline-id') : (activeSplitTimelineId || 'timeline-1');
+
+            const origIdx = currentClips.findIndex(c => c.filename === activeSplitClipFilename);
+
+            // Update Part 1 in-place
+            const p1 = parts[0];
+            if (origIdx !== -1) {
+                currentClips[origIdx] = { ...currentClips[origIdx], ...p1 };
+            }
+
+            if (card1) {
+                card1.setAttribute('data-start', p1.start_time);
+                card1.setAttribute('data-end', p1.end_time);
+
+                const durBadge = card1.querySelector('.clip-duration-badge');
+                if (durBadge) durBadge.innerText = `⏱ ${p1.duration_formatted}`;
+
+                const rangeBadge = card1.querySelector('.clip-range-badge');
+                if (rangeBadge) {
+                    rangeBadge.innerText = `📍 ${p1.range_label}`;
+                    rangeBadge.style.display = 'block';
+                }
+            }
+
+            // Consecutively insert Part 2, Part 3, etc.
+            let prevCard = card1;
+            for (let k = 1; k < parts.length; k++) {
+                const part = parts[k];
+                if (origIdx !== -1) {
+                    currentClips.splice(origIdx + k, 0, part);
+                } else {
+                    currentClips.push(part);
+                }
+
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = createTimelineClipCardHtml(part.filename, (origIdx !== -1 ? origIdx + k : 0), part, currentClips.length);
+                const newCard = tempDiv.firstElementChild;
+                newCard.style.opacity = '0';
+                newCard.style.transform = 'scale(0.85)';
+                newCard.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+
+                if (prevCard && prevCard.parentNode) {
+                    prevCard.insertAdjacentElement('afterend', newCard);
+                } else if (container) {
+                    const track = container.querySelector('.timeline-track');
+                    if (track) track.appendChild(newCard);
+                }
+
+                requestAnimationFrame(() => {
+                    newCard.style.opacity = '1';
+                    newCard.style.transform = 'scale(1)';
+                });
+
+                prevCard = newCard;
+            }
+
+            updateTimelineIndices(timelineId);
+            updateTimelineTotalDuration(timelineId);
+
+            if (videoPlayer && videoPlayer.src && videoPlayer.src.includes(activeSplitClipFilename)) {
+                videoPlayer.src = `/media/${currentSession}/${activeSplitClipFilename}?t=${Date.now()}`;
+                videoPlayer.load();
+            }
+
+            closeSplitClipModal();
+            showStatus('splitStatus', 'success', `✂️ Clip successfully split into ${parts.length} clips! Delete any piece with 🗑 or rearrange on the timeline.`);
+
+        } catch (err) {
+            alert(`Failed to split clip: ${err.message}`);
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = `✂️ Split into Clips`;
+            }
+        }
+    }
+
+    // Keyboard shortcuts for split modal
+    document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('splitClipModal');
+        if (!modal || modal.style.display === 'none') return;
+
+        if (e.key === 'Escape') {
+            closeSplitClipModal();
+        } else if (e.key === ' ' && e.target.tagName !== 'INPUT') {
+            e.preventDefault();
+            toggleSplitModalPlayback();
+        } else if ((e.key === 'm' || e.key === 'M') && e.target.tagName !== 'INPUT') {
+            e.preventDefault();
+            addSplitMarker();
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            nudgeSplitScrubber(-0.1);
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            nudgeSplitScrubber(0.1);
+        }
+    });

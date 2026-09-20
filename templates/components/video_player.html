@@ -4,7 +4,12 @@
                     <span class="active-video-dot"></span>
                     <span id="activeVideoTitle" style="font-weight: 500; font-size: 0.875rem;">Now Previewing</span>
                 </div>
-                <button class="btn btn-outline btn-sm" onclick="restoreOriginalVideo()" style="width: auto; padding: 4px 10px; font-size: 0.8rem;">↩ Back to Original Video</button>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <button id="btnBannerSplitAtPlayhead" class="btn btn-sm" onclick="splitActiveVideoAtPlayhead()" style="display: none; background: rgba(245, 158, 11, 0.18); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 4px 10px; font-size: 0.8rem; font-weight: 600; border-radius: 4px; cursor: pointer;" title="Split this clip at the current playhead position">
+                        ✂️ Split at Playhead
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="restoreOriginalVideo()" style="width: auto; padding: 4px 10px; font-size: 0.8rem;">↩ Back to Original Video</button>
+                </div>
             </div>
 
             <div class="video-container" id="videoContainer">

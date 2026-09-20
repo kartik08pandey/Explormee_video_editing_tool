@@ -277,6 +277,24 @@
             border-color: rgba(34, 197, 94, 0.4);
             color: #22c55e;
         }
+        .clip-split-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: #94a3b8;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 3px 5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            line-height: 1;
+        }
+        .clip-split-btn:hover {
+            background: rgba(245, 158, 11, 0.18);
+            border-color: rgba(245, 158, 11, 0.4);
+            color: #f59e0b;
+        }
         .clip-duplicate-btn {
             background: transparent;
             border: 1px solid transparent;
@@ -449,4 +467,73 @@
         }
         @keyframes trimSpin {
             to { transform: rotate(360deg); }
+        }
+
+/* Multi-Marker Split Modal Styles */
+        .split-marker-pin {
+            position: absolute;
+            top: 0;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 14px;
+            background: #f59e0b;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+        .split-marker-pin::after {
+            content: '▼';
+            position: absolute;
+            top: -9px;
+            left: -4px;
+            font-size: 8px;
+            color: #f59e0b;
+        }
+        .split-marker-pin:hover {
+            transform: translateX(-50%) scale(1.25);
+            background: #fbbf24;
+        }
+
+        .split-marker-chip {
+            background: rgba(245, 158, 11, 0.14);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            color: #f59e0b;
+            font-size: 0.75rem;
+            font-family: monospace;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .split-marker-chip:hover {
+            background: rgba(245, 158, 11, 0.25);
+        }
+        .split-marker-chip-del {
+            color: #94a3b8;
+            font-weight: bold;
+            font-size: 0.85rem;
+            line-height: 1;
+            margin-left: 2px;
+            cursor: pointer;
+        }
+        .split-marker-chip-del:hover {
+            color: #ef4444;
+        }
+
+        .split-segment-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 8px 12px;
+            min-width: 140px;
+            flex-shrink: 0;
+            text-align: center;
+            transition: border-color 0.15s;
+        }
+        .split-segment-card:hover {
+            border-color: #64748b;
         }

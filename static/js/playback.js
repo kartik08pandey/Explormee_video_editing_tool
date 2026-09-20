@@ -219,9 +219,11 @@
         
         const banner = document.getElementById('activeVideoBanner');
         const title = document.getElementById('activeVideoTitle');
+        const splitBtn = document.getElementById('btnBannerSplitAtPlayhead');
         
         title.innerText = `Now Previewing: ${label || filename}`;
         banner.style.display = 'flex';
+        if (splitBtn) splitBtn.style.display = 'inline-flex';
         
         videoPlayer.src = `/media/${currentSession}/${filename}?t=${Date.now()}`;
         videoPlayer.load();
@@ -238,9 +240,25 @@
         highlightTimelineCard(-1);
         
         const banner = document.getElementById('activeVideoBanner');
+        const splitBtn = document.getElementById('btnBannerSplitAtPlayhead');
         banner.style.display = 'none';
+        if (splitBtn) splitBtn.style.display = 'none';
         
         videoPlayer.src = `/media/${currentSession}/${currentFilename}`;
         videoPlayer.load();
-        
+    }
+
+    function splitActiveVideoAtPlayhead() {
+        if (!currentSession) return;
+        const titleEl = document.getElementById('activeVideoTitle');
+        const text = titleEl ? titleEl.innerText : '';
+        const match = text.match(/\((.*?)\)/);
+        const fn = match ? match[1] : null;
+        if (!fn) {
+            alert("Please preview a timeline clip first to split at playhead.");
+            return;
+        }
+
+        const currentTime = videoPlayer ? videoPlayer.currentTime : null;
+        openSplitClipModal(fn, activeTimelineIndex >= 0 ? activeTimelineIndex : 0, currentTime);
     }
