@@ -132,7 +132,7 @@
             cards.forEach((card, idx) => {
                 card.setAttribute('data-index', idx);
                 const badge = card.querySelector('.clip-index-badge');
-                if (badge) badge.innerText = `#${idx + 1}`;
+                if (badge) badge.remove();
 
                 const fn = card.getAttribute('data-filename');
 
@@ -370,7 +370,6 @@
                 <div class="clip-trim-handle trim-right" title="Drag to trim end (pull right to extend, left to shorten)" onmousedown="handleTrimHandleMouseDown(event, 'right')"></div>
                 <div class="clip-card-header">
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <span class="clip-index-badge">#${idx + 1}</span>
                         <span class="clip-duration-badge" id="clip-dur-${idx}">⏱ ${durBadge}</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 4px;">
