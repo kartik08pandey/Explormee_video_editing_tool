@@ -1,4 +1,5 @@
-/* --- Drag and Drop & Reordering Logic for Timeline --- */
+/* --- Multi-Timeline & Drag/Drop Reordering Logic --- */
+    let sourceTimelineId = null;
 
     document.getElementById('splitOutputs').addEventListener('dragstart', (e) => {
         if (e.target.classList.contains('clip-trim-handle') || isTrimmingActive || e.target.closest('button') || e.target.closest('input')) {
@@ -8,6 +9,8 @@
         const card = e.target.closest('.timeline-clip-card');
         if (card) {
             draggedTimelineCard = card;
+            const container = card.closest('.timeline-container');
+            sourceTimelineId = container ? container.getAttribute('data-timeline-id') : null;
             requestAnimationFrame(() => card.classList.add('dragging'));
         }
     });
@@ -17,16 +20,63 @@
         if (card) {
             card.classList.remove('dragging');
             draggedTimelineCard = null;
-            updateTimelineIndices();
+
+            // Remove any dragover highlights from all tracks
+            document.querySelectorAll('.timeline-track').forEach(t => t.classList.remove('dragover-track'));
+
+            const targetContainer = card.closest('.timeline-container');
+            const targetTimelineId = targetContainer ? targetContainer.getAttribute('data-timeline-id') : null;
+
+            // Clean up empty notices if cards were inserted
+            if (targetContainer) {
+                const emptyNotice = targetContainer.querySelector('.timeline-empty-notice');
+                if (emptyNotice) emptyNotice.remove();
+            }
+
+            // Check if source container became empty
+            if (sourceTimelineId && sourceTimelineId !== targetTimelineId) {
+                const srcContainer = document.getElementById(`timelineContainer-${sourceTimelineId}`);
+                if (srcContainer) {
+                    const srcCards = srcContainer.querySelectorAll('.timeline-clip-card');
+                    if (srcCards.length === 0) {
+                        const srcTrack = srcContainer.querySelector('.timeline-track');
+                        if (srcTrack && !srcTrack.querySelector('.timeline-empty-notice')) {
+                            srcTrack.innerHTML = `<div class="timeline-empty-notice" id="timelineEmptyNotice-${sourceTimelineId}">
+                                <span>📥 Drag clips here or duplicate from other timelines</span>
+                            </div>`;
+                        }
+                    }
+                    updateTimelineIndices(sourceTimelineId);
+                    updateTimelineTotalDuration(sourceTimelineId);
+                }
+            }
+
+            if (targetTimelineId) {
+                updateTimelineIndices(targetTimelineId);
+                updateTimelineTotalDuration(targetTimelineId);
+            } else {
+                updateTimelineIndices();
+                updateTimelineTotalDuration();
+            }
+
+            sourceTimelineId = null;
         }
     });
 
     document.getElementById('splitOutputs').addEventListener('dragover', (e) => {
         e.preventDefault();
         if (!draggedTimelineCard || isTrimmingActive) return;
-        const track = document.getElementById('timelineTrack');
+
+        // Find target track (supports dragging into any timeline)
+        const track = e.target.closest('.timeline-track') || e.target.closest('.timeline-track-wrapper')?.querySelector('.timeline-track');
         if (!track) return;
-        
+
+        // Highlight active hovered track
+        document.querySelectorAll('.timeline-track').forEach(t => {
+            if (t === track) t.classList.add('dragover-track');
+            else t.classList.remove('dragover-track');
+        });
+
         const afterElement = getTimelineDragAfterElement(track, e.clientX);
         if (afterElement == null) {
             track.appendChild(draggedTimelineCard);
@@ -51,94 +101,264 @@
     function shiftTimelineClip(btn, direction) {
         const card = btn.closest('.timeline-clip-card');
         if (!card) return;
-        const track = document.getElementById('timelineTrack');
+        const track = card.closest('.timeline-track');
         if (!track) return;
+        const container = card.closest('.timeline-container');
+        const timelineId = container ? container.getAttribute('data-timeline-id') : null;
         
-        if (direction === -1 && card.previousElementSibling) {
+        if (direction === -1 && card.previousElementSibling && !card.previousElementSibling.classList.contains('timeline-empty-notice')) {
             track.insertBefore(card, card.previousElementSibling);
         } else if (direction === 1 && card.nextElementSibling) {
             track.insertBefore(card.nextElementSibling, card);
         }
-        updateTimelineIndices();
+        updateTimelineIndices(timelineId);
+        updateTimelineTotalDuration(timelineId);
     }
 
-    function updateTimelineIndices() {
-        const track = document.getElementById('timelineTrack');
-        if (!track) return;
-        const cards = [...track.querySelectorAll('.timeline-clip-card')];
-        cards.forEach((card, idx) => {
-            card.setAttribute('data-index', idx);
-            const badge = card.querySelector('.clip-index-badge');
-            if (badge) badge.innerText = `#${idx + 1}`;
-            
-            const leftBtn = card.querySelector('.btn-shift-left');
-            const rightBtn = card.querySelector('.btn-shift-right');
-            if (leftBtn) leftBtn.disabled = (idx === 0);
-            if (rightBtn) rightBtn.disabled = (idx === cards.length - 1);
+    function updateTimelineIndices(timelineId = null) {
+        let containers = [];
+        if (timelineId) {
+            const el = document.getElementById(`timelineContainer-${timelineId}`) || 
+                       document.querySelector(`[data-timeline-id="${timelineId}"]`);
+            if (el) containers.push(el);
+        } else {
+            containers = Array.from(document.querySelectorAll('.timeline-container'));
+        }
 
-            const fn = card.getAttribute('data-filename');
+        containers.forEach(container => {
+            const id = container.getAttribute('data-timeline-id');
+            const cards = Array.from(container.querySelectorAll('.timeline-clip-card'));
 
-            // Sync indexed elements & event bindings
-            const dur = card.querySelector('.clip-duration-badge');
-            if (dur) dur.id = `clip-dur-${idx}`;
-            const range = card.querySelector('.clip-range-badge');
-            if (range) range.id = `clip-range-${idx}`;
-            const nameRow = card.querySelector('.clip-card-name-row');
-            if (nameRow) nameRow.id = `clip-name-display-${idx}`;
-            const nameText = card.querySelector('.clip-card-name');
-            if (nameText) {
-                nameText.id = `clip-name-text-${idx}`;
-                nameText.onclick = () => startRenameClip(fn, idx);
+            cards.forEach((card, idx) => {
+                card.setAttribute('data-index', idx);
+                const badge = card.querySelector('.clip-index-badge');
+                if (badge) badge.innerText = `#${idx + 1}`;
+
+                const fn = card.getAttribute('data-filename');
+
+                // Sync indexed elements & event bindings
+                const dur = card.querySelector('.clip-duration-badge');
+                if (dur) dur.id = `clip-dur-${id}-${idx}`;
+                const range = card.querySelector('.clip-range-badge');
+                if (range) range.id = `clip-range-${id}-${idx}`;
+                const nameRow = card.querySelector('.clip-card-name-row');
+                if (nameRow) nameRow.id = `clip-name-display-${id}-${idx}`;
+                const nameText = card.querySelector('.clip-card-name');
+                if (nameText) {
+                    nameText.id = `clip-name-text-${id}-${idx}`;
+                    nameText.onclick = () => startRenameClip(fn, idx);
+                }
+                const renameBtn = card.querySelector('.clip-rename-btn');
+                if (renameBtn) renameBtn.onclick = () => startRenameClip(fn, idx);
+                const renameBox = card.querySelector('.clip-rename-box');
+                if (renameBox) renameBox.id = `clip-rename-box-${id}-${idx}`;
+                const renameInput = card.querySelector('input[type="text"]');
+                if (renameInput) {
+                    renameInput.id = `clip-rename-input-${id}-${idx}`;
+                    renameInput.onkeydown = (e) => handleRenameKey(e, fn, idx);
+                }
+                const saveBtn = card.querySelector('.clip-save-btn');
+                if (saveBtn) saveBtn.onclick = () => saveRenameClip(fn, idx);
+                const cancelBtn = card.querySelector('.clip-rename-box .btn-outline');
+                if (cancelBtn) cancelBtn.onclick = () => cancelRenameClip(idx);
+                const errDiv = card.querySelector('.clip-rename-box > div:last-child');
+                if (errDiv) errDiv.id = `clip-rename-err-${id}-${idx}`;
+                const prog = card.querySelector('.clip-progress-bar');
+                if (prog) prog.id = `clip-prog-${id}-${idx}`;
+                const playBtn = card.querySelector('.clip-play-btn');
+                if (playBtn) playBtn.onclick = () => playSoloClip(fn, idx);
+            });
+
+            // Update clip count text in container header
+            const countEl = container.querySelector('.timeline-clip-count-text') || 
+                            document.getElementById(`timelineClipsCountText-${id}`) || 
+                            document.getElementById('timelineClipsCountText');
+            if (countEl) {
+                countEl.innerHTML = `<strong>${cards.length} Clip${cards.length === 1 ? '' : 's'}</strong>`;
             }
-            const renameBtn = card.querySelector('.clip-rename-btn');
-            if (renameBtn) renameBtn.onclick = () => startRenameClip(fn, idx);
-            const renameBox = card.querySelector('.clip-rename-box');
-            if (renameBox) renameBox.id = `clip-rename-box-${idx}`;
-            const renameInput = card.querySelector('input[type="text"]');
-            if (renameInput) {
-                renameInput.id = `clip-rename-input-${idx}`;
-                renameInput.onkeydown = (e) => handleRenameKey(e, fn, idx);
-            }
-            const saveBtn = card.querySelector('.clip-save-btn');
-            if (saveBtn) saveBtn.onclick = () => saveRenameClip(fn, idx);
-            const cancelBtn = card.querySelector('.clip-rename-box .btn-outline');
-            if (cancelBtn) cancelBtn.onclick = () => cancelRenameClip(idx);
-            const errDiv = card.querySelector('.clip-rename-box > div:last-child');
-            if (errDiv) errDiv.id = `clip-rename-err-${idx}`;
-            const prog = card.querySelector('.clip-progress-bar');
-            if (prog) prog.id = `clip-prog-${idx}`;
-            const playBtn = card.querySelector('.clip-play-btn');
-            if (playBtn) playBtn.onclick = () => playSoloClip(fn, idx);
         });
-        
-        if (isPlayingSequence) {
-            sequenceClips = getTimelineClipsOrder();
+
+        if (isPlayingSequence && activePlayingTimelineId) {
+            sequenceClips = getTimelineClipsOrder(activePlayingTimelineId);
         }
     }
 
-    function getTimelineClipsOrder() {
-        const track = document.getElementById('timelineTrack');
-        if (!track) return currentClips;
-        const cards = track.querySelectorAll('.timeline-clip-card');
-        if (cards.length === 0) return currentClips;
-        
+    function getTimelineClipsOrder(timelineId = null) {
+        let container;
+        if (timelineId) {
+            container = document.getElementById(`timelineContainer-${timelineId}`) || 
+                        document.querySelector(`[data-timeline-id="${timelineId}"]`);
+        } else {
+            container = document.querySelector('.timeline-container');
+        }
+        if (!container) return currentClips;
+
+        const cards = container.querySelectorAll('.timeline-clip-card');
+        if (cards.length === 0) return [];
+
         const ordered = [];
         cards.forEach((card, i) => {
             const fn = card.getAttribute('data-filename');
             const found = currentClips.find(c => c.filename === fn);
+            const start = parseFloat(card.getAttribute('data-start') || '0');
+            const end = parseFloat(card.getAttribute('data-end') || '0');
+            const dur = (end > start) ? (end - start) : (found ? found.duration : 0);
+
             if (found) {
-                ordered.push({ ...found, timelineIndex: i });
+                ordered.push({ ...found, timelineIndex: i, start_time: start, end_time: end, duration: dur });
             } else {
-                ordered.push({ filename: fn, index: i + 1, timelineIndex: i, duration_formatted: '', duration: 0 });
+                ordered.push({ filename: fn, index: i + 1, timelineIndex: i, duration_formatted: '', duration: dur, start_time: start, end_time: end });
             }
         });
         return ordered;
     }
 
+    function renderTimelineContainerHtml(timelineId, title, clips = []) {
+        let totalSec = 0;
+        clips.forEach(cl => {
+            totalSec += (cl.duration || 0);
+        });
+        const th = Math.floor(totalSec / 3600);
+        const tm = Math.floor((totalSec % 3600) / 60);
+        const ts = (totalSec % 60).toFixed(1);
+        const totalFormatted = th > 0 ? `${th}h ${tm}m ${ts}s` : `${tm}m ${ts}s`;
+
+        let cardsHtml = '';
+        if (clips.length > 0) {
+            clips.forEach((cl, idx) => {
+                cardsHtml += createTimelineClipCardHtml(cl.filename, idx, cl, clips.length);
+            });
+        } else {
+            cardsHtml = `<div class="timeline-empty-notice" id="timelineEmptyNotice-${timelineId}">
+                <span>📥 Drag clips here or duplicate from other timelines</span>
+            </div>`;
+        }
+
+        return `
+        <div class="timeline-container" id="timelineContainer-${timelineId}" data-timeline-id="${timelineId}">
+            <div class="timeline-top-bar">
+                <div class="timeline-meta-info">
+                    <span class="timeline-title-badge" id="timelineTitleBadge-${timelineId}">🎞 ${title}</span>
+                    <span>
+                        <span class="timeline-clip-count-text" id="timelineClipsCountText-${timelineId}"><strong>${clips.length} Clip${clips.length === 1 ? '' : 's'}</strong></span>
+                        &bull; Total: <span class="timeline-total-dur-text" id="timelineTotalDuration-${timelineId}" style="font-family:monospace; color:var(--accent-color); font-weight:600;">${totalFormatted}</span>
+                    </span>
+                </div>
+                <div class="timeline-actions">
+                    <button id="btnPlaySequence-${timelineId}" class="btn btn-sequence-play btn-sm" onclick="togglePlaySequence('${timelineId}')">
+                        ▶ Play Sequence
+                    </button>
+                    <button id="btnRestartSequence-${timelineId}" class="btn btn-outline btn-sm" onclick="restartSequence('${timelineId}')">
+                        ⏮ Restart
+                    </button>
+                    <button id="btnMergeOnly-${timelineId}" class="btn btn-merge-download btn-sm" onclick="mergeClips('merge', '${timelineId}')" title="Merge clips in original format and aspect ratio">
+                        ⚡ Only Merge
+                    </button>
+                    <button id="btnMergeCrop-${timelineId}" class="btn btn-merge-crop btn-sm" onclick="mergeClips('merge_crop', '${timelineId}')" title="Merge clips and format/stack into 9:16 vertical video">
+                        📐 Merge + Crop
+                    </button>
+                    <button class="btn btn-delete-timeline btn-sm" onclick="removeTimeline('${timelineId}')" title="Remove this timeline section">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        Delete Timeline
+                    </button>
+                </div>
+            </div>
+            <div class="timeline-track-wrapper" id="timelineTrackWrapper-${timelineId}">
+                <div class="timeline-track" id="timelineTrack-${timelineId}" data-timeline-id="${timelineId}">
+                    ${cardsHtml}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function addNewTimeline(initialClips = []) {
+        const outputs = document.getElementById('splitOutputs');
+        if (!outputs) return;
+
+        timelineCounter++;
+        const timelineId = `timeline-${timelineCounter}`;
+        const timelineTitle = `Timeline ${timelineCounter}`;
+
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = renderTimelineContainerHtml(timelineId, timelineTitle, initialClips);
+        const newContainer = tempDiv.firstElementChild;
+        newContainer.style.opacity = '0';
+        newContainer.style.transform = 'translateY(12px)';
+        newContainer.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+
+        outputs.appendChild(newContainer);
+
+        requestAnimationFrame(() => {
+            newContainer.style.opacity = '1';
+            newContainer.style.transform = 'translateY(0)';
+        });
+
+        updateTimelinesToolbarAndButtons();
+        updateTimelineIndices(timelineId);
+        updateTimelineTotalDuration(timelineId);
+
+        setTimeout(() => {
+            newContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+
+        return timelineId;
+    }
+
+    function removeTimeline(timelineId) {
+        const containers = document.querySelectorAll('.timeline-container');
+        if (containers.length <= 1) {
+            alert("At least one timeline must remain.");
+            return;
+        }
+
+        const container = document.getElementById(`timelineContainer-${timelineId}`);
+        if (!container) return;
+
+        const cards = container.querySelectorAll('.timeline-clip-card');
+        if (cards.length > 0) {
+            if (!confirm(`This timeline contains ${cards.length} clip(s). Are you sure you want to delete it?`)) {
+                return;
+            }
+        }
+
+        // Stop playback if actively playing on this timeline
+        if (activePlayingTimelineId === timelineId && isPlayingSequence) {
+            pauseSequencePlayback(timelineId);
+            activePlayingTimelineId = null;
+        }
+
+        container.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+        container.style.opacity = '0';
+        container.style.transform = 'scale(0.95)';
+
+        setTimeout(() => {
+            container.remove();
+            updateTimelinesToolbarAndButtons();
+        }, 200);
+    }
+
+    function updateTimelinesToolbarAndButtons() {
+        const containers = document.querySelectorAll('.timeline-container');
+        const badge = document.getElementById('timelinesCountBadge');
+        if (badge) badge.innerText = containers.length;
+
+        // Show toolbar if at least 1 container exists
+        const bar = document.getElementById('timelinesControlBar');
+        if (bar) {
+            bar.style.display = containers.length > 0 ? 'flex' : 'none';
+        }
+
+        // Show delete timeline button only when more than 1 timeline exists
+        containers.forEach(container => {
+            const delBtn = container.querySelector('.btn-delete-timeline');
+            if (delBtn) {
+                delBtn.style.display = containers.length > 1 ? 'inline-flex' : 'none';
+            }
+        });
+    }
+
     function createTimelineClipCardHtml(f, idx, detail = {}, totalCount = 1) {
         const durBadge = detail.duration_formatted ? detail.duration_formatted : `${detail.duration || 0}s`;
-        const isFirst = (idx === 0);
-        const isLast = (idx === totalCount - 1);
         const startVal = detail.start_time !== undefined ? detail.start_time : 0;
         const endVal = detail.end_time !== undefined ? detail.end_time : (detail.duration || 0);
 
@@ -152,6 +372,13 @@
                         <span class="clip-duration-badge" id="clip-dur-${idx}">⏱ ${durBadge}</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 4px;">
+                        <a href="/download/${currentSession}/${f}" class="clip-download-btn" download title="Download this clip">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </a>
                         <button class="clip-duplicate-btn" onclick="duplicateTimelineClip(this, '${f}')" title="Duplicate this clip">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -185,15 +412,7 @@
                     </div>
                 </div>
                 <div class="clip-card-footer">
-                    <div style="display: flex; gap: 2px;">
-                        <button class="clip-nav-btn btn-shift-left" onclick="shiftTimelineClip(this, -1)" ${isFirst ? 'disabled' : ''} title="Shift Left / Earlier">◀</button>
-                        <button class="clip-nav-btn btn-shift-right" onclick="shiftTimelineClip(this, 1)" ${isLast ? 'disabled' : ''} title="Shift Right / Later">▶</button>
-                    </div>
-                    <div class="clip-card-actions">
-                        <button class="clip-action-btn clip-play-btn" onclick="playSoloClip('${f}', ${idx})" title="Play solo in workspace player">▶ Play</button>
-                        <button class="clip-action-btn clip-review-btn" onclick="openClipReviewByFilename('${f}')" title="Inspect frame-by-frame in modal">🔍 Review</button>
-                        <a href="/download/${currentSession}/${f}" class="clip-action-btn clip-download-btn" download title="Download this clip">⬇</a>
-                    </div>
+                    <button class="clip-action-btn clip-play-btn" onclick="playSoloClip('${f}', ${idx})" title="Play solo in workspace player">▶</button>
                 </div>
             </div>`;
     }
@@ -202,6 +421,8 @@
         if (!currentSession) return;
         const card = btn.closest('.timeline-clip-card');
         if (!card) return;
+        const container = card.closest('.timeline-container');
+        const timelineId = container ? container.getAttribute('data-timeline-id') : null;
 
         btn.disabled = true;
         const origHtml = btn.innerHTML;
@@ -232,7 +453,7 @@
                 range_label: origDetail.range_label || ''
             };
 
-            // Insert into currentClips immediately after original
+            // Insert into currentClips in-memory array
             const origIdx = currentClips.findIndex(c => c.filename === filename);
             if (origIdx !== -1) {
                 currentClips.splice(origIdx + 1, 0, newDetail);
@@ -242,7 +463,7 @@
 
             // Build DOM element
             const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = createTimelineClipCardHtml(newFilename, origIdx + 1, newDetail, currentClips.length);
+            tempDiv.innerHTML = createTimelineClipCardHtml(newFilename, 0, newDetail, currentClips.length);
             const newCard = tempDiv.firstElementChild;
             newCard.style.opacity = '0';
             newCard.style.transform = 'scale(0.85)';
@@ -251,13 +472,15 @@
             if (card && card.parentNode) {
                 card.insertAdjacentElement('afterend', newCard);
             } else {
-                const track = document.getElementById('timelineTrack');
+                const track = container ? container.querySelector('.timeline-track') : document.getElementById('timelineTrack');
                 if (track) track.appendChild(newCard);
             }
 
-            // Remove empty notice if present
-            const emptyNotice = document.getElementById('timelineEmptyNotice');
-            if (emptyNotice) emptyNotice.remove();
+            // Remove empty notice in this track if present
+            if (container) {
+                const emptyNotice = container.querySelector('.timeline-empty-notice');
+                if (emptyNotice) emptyNotice.remove();
+            }
 
             // Trigger smooth entrance
             requestAnimationFrame(() => {
@@ -265,25 +488,19 @@
                 newCard.style.transform = 'scale(1)';
             });
 
-            // Re-index all cards (#1, #2, etc.)
-            updateTimelineIndices();
+            // Re-index this timeline's cards (#1, #2, etc.) and update duration
+            updateTimelineIndices(timelineId);
+            updateTimelineTotalDuration(timelineId);
 
-            // Update header count and total duration
-            const track = document.getElementById('timelineTrack');
-            const cards = track ? track.querySelectorAll('.timeline-clip-card') : [];
-            const countEl = document.getElementById('timelineClipsCountText');
-            if (countEl) {
-                countEl.innerHTML = `<strong>${cards.length} Clip${cards.length === 1 ? '' : 's'}</strong>`;
+            // Enable sequence / merge buttons on this timeline
+            if (container) {
+                const playSeq = container.querySelector('.btn-sequence-play');
+                const mergeOnly = container.querySelector('.btn-merge-download');
+                const mergeCrop = container.querySelector('.btn-merge-crop');
+                if (playSeq) playSeq.disabled = false;
+                if (mergeOnly) mergeOnly.disabled = false;
+                if (mergeCrop) mergeCrop.disabled = false;
             }
-            updateTimelineTotalDuration();
-
-            // Enable sequence / merge buttons if they were disabled
-            const playSeq = document.getElementById('btnPlaySequence');
-            const mergeOnly = document.getElementById('btnMergeOnly');
-            const mergeCrop = document.getElementById('btnMergeCrop');
-            if (playSeq) playSeq.disabled = false;
-            if (mergeOnly) mergeOnly.disabled = false;
-            if (mergeCrop) mergeCrop.disabled = false;
 
             // Smooth scroll to the newly created clip card
             setTimeout(() => {
@@ -301,6 +518,8 @@
     async function deleteTimelineClip(btn, filename) {
         const card = btn.closest('.timeline-clip-card');
         if (!card) return;
+        const container = card.closest('.timeline-container');
+        const timelineId = container ? container.getAttribute('data-timeline-id') : null;
 
         // Visual feedback & animated exit transition
         card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
@@ -317,49 +536,47 @@
             }
 
             // 2. Re-index remaining cards (#1, #2, ...) & update shift button states
-            updateTimelineIndices();
+            updateTimelineIndices(timelineId);
+            updateTimelineTotalDuration(timelineId);
 
-            // 3. Update count and total duration in timeline top bar
-            const track = document.getElementById('timelineTrack');
-            const remainingCards = track ? track.querySelectorAll('.timeline-clip-card') : [];
-            const countEl = document.getElementById('timelineClipsCountText');
-            if (countEl) {
-                countEl.innerHTML = `<strong>${remainingCards.length} Clip${remainingCards.length === 1 ? '' : 's'}</strong>`;
-            }
-            updateTimelineTotalDuration();
-
-            // 4. Handle empty timeline state
-            if (remainingCards.length === 0) {
-                if (track) {
-                    track.innerHTML = `<div id="timelineEmptyNotice" style="padding: 24px; color: #94a3b8; font-size: 0.88rem; text-align: center; width: 100%;">No clips on timeline.</div>`;
+            // 3. Handle empty timeline state for this track
+            if (container) {
+                const remainingCards = container.querySelectorAll('.timeline-clip-card');
+                if (remainingCards.length === 0) {
+                    const track = container.querySelector('.timeline-track');
+                    if (track) {
+                        track.innerHTML = `<div class="timeline-empty-notice" id="timelineEmptyNotice-${timelineId}">
+                            <span>📥 Drag clips here or duplicate from other timelines</span>
+                        </div>`;
+                    }
+                    const playSeq = container.querySelector('.btn-sequence-play');
+                    const mergeOnly = container.querySelector('.btn-merge-download');
+                    const mergeCrop = container.querySelector('.btn-merge-crop');
+                    if (playSeq) playSeq.disabled = true;
+                    if (mergeOnly) mergeOnly.disabled = true;
+                    if (mergeCrop) mergeCrop.disabled = true;
                 }
-                const playSeq = document.getElementById('btnPlaySequence');
-                const mergeOnly = document.getElementById('btnMergeOnly');
-                const mergeCrop = document.getElementById('btnMergeCrop');
-                if (playSeq) playSeq.disabled = true;
-                if (mergeOnly) mergeOnly.disabled = true;
-                if (mergeCrop) mergeCrop.disabled = true;
             }
 
-            // 5. If workspace player is currently playing this deleted clip, stop it
+            // 4. If workspace player is currently playing this deleted clip, stop it
             if (videoPlayer && videoPlayer.src && videoPlayer.src.includes(filename)) {
                 videoPlayer.pause();
                 const banner = document.getElementById('activeVideoBanner');
                 if (banner) banner.style.display = 'none';
             }
 
-            // 6. If sequence playback is active, refresh the sequence queue
-            if (isPlayingSequence) {
-                sequenceClips = getTimelineClipsOrder();
+            // 5. If sequence playback is active on this timeline, refresh the sequence queue
+            if (isPlayingSequence && activePlayingTimelineId === timelineId) {
+                sequenceClips = getTimelineClipsOrder(timelineId);
                 if (sequenceClips.length === 0) {
                     isPlayingSequence = false;
-                    updateSequencePlayButton();
+                    updateSequencePlayButton(timelineId);
                     activeTimelineIndex = -1;
                     highlightTimelineCard(-1);
                 }
             }
 
-            // 7. Delete clip from server session directory in background
+            // 6. Delete clip from server session directory in background
             if (currentSession && filename) {
                 try {
                     await fetch('/delete-clip', {

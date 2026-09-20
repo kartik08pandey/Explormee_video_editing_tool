@@ -63,10 +63,14 @@
             // Reset timeline and split/merge outputs
             isPlayingSequence = false;
             activeTimelineIndex = -1;
+            timelineCounter = 1;
+            activePlayingTimelineId = null;
             currentClips = [];
             sequenceClips = [];
             const splitOutputs = document.getElementById('splitOutputs');
             if (splitOutputs) splitOutputs.innerHTML = '';
+            const timelinesControlBar = document.getElementById('timelinesControlBar');
+            if (timelinesControlBar) timelinesControlBar.style.display = 'none';
             const mergeSection = document.getElementById('mergeSection');
             if (mergeSection) mergeSection.style.display = 'none';
             const banner = document.getElementById('activeVideoBanner');

@@ -1,20 +1,31 @@
 /* --- Dedicated Merge & Stack Engine --- */
-    /* --- Dedicated Merge & Stack Engine --- */
-    async function mergeClips(mode = 'merge') {
+    async function mergeClips(mode = 'merge', timelineId = null) {
         if (!currentSession) return;
-        const track = document.getElementById('timelineTrack');
+        
+        let container = null;
+        if (timelineId) {
+            container = document.getElementById(`timelineContainer-${timelineId}`) || 
+                        document.querySelector(`[data-timeline-id="${timelineId}"]`);
+        } else {
+            container = document.querySelector('.timeline-container');
+        }
+        if (!container) return;
+
+        const track = container.querySelector('.timeline-track');
         if (!track) return;
+        const actualTimelineId = container.getAttribute('data-timeline-id') || timelineId;
+        const timelineTitle = container.querySelector('.timeline-title-badge')?.innerText || 'Timeline';
         
         const cards = track.querySelectorAll('.timeline-clip-card');
         const filesInOrder = Array.from(cards).map(c => c.getAttribute('data-filename'));
         
         if (filesInOrder.length < 1) {
-            showStatus('mergeStatus', 'error', 'Need at least 1 clip on the timeline to merge.');
+            showStatus('mergeStatus', 'error', `${timelineTitle}: Need at least 1 clip on this timeline to merge.`);
             return;
         }
         
-        const btnOnly = document.getElementById('btnMergeOnly');
-        const btnCrop = document.getElementById('btnMergeCrop');
+        const btnOnly = container.querySelector('.btn-merge-download') || document.getElementById(`btnMergeOnly-${actualTimelineId}`) || document.getElementById('btnMergeOnly');
+        const btnCrop = container.querySelector('.btn-merge-crop') || document.getElementById(`btnMergeCrop-${actualTimelineId}`) || document.getElementById('btnMergeCrop');
         const activeBtn = mode === 'merge_crop' ? btnCrop : btnOnly;
         
         const origOnlyText = btnOnly ? btnOnly.innerHTML : '';
@@ -31,9 +42,9 @@
         if (mergeSection) mergeSection.style.display = 'block';
         
         if (mode === 'merge_crop') {
-            showStatus('mergeStatus', 'info', `Merging ${filesInOrder.length} clip(s), stacking halves, and padding with dark bars into 1080×1920 (9:16)...`);
+            showStatus('mergeStatus', 'info', `[${timelineTitle}] Merging ${filesInOrder.length} clip(s), stacking halves, and padding with dark bars into 1080×1920 (9:16)...`);
         } else {
-            showStatus('mergeStatus', 'info', `Merging ${filesInOrder.length} clip(s) sequentially into original dimensions...`);
+            showStatus('mergeStatus', 'info', `[${timelineTitle}] Merging ${filesInOrder.length} clip(s) sequentially into original dimensions...`);
         }
         
         try {
@@ -59,7 +70,7 @@
                 : (meta && meta.width && meta.height ? ` (${meta.width}×${meta.height})` : '');
             const modeAction = mode === 'merge_crop' ? 'merged and cropped' : 'merged';
             
-            statusEl.innerHTML = `✅ Successfully ${modeAction} ${filesInOrder.length} clip(s) into <strong>${data.file}</strong>${modeDesc}${durInfo}! Preview the video below or click Download.`;
+            statusEl.innerHTML = `✅ [${timelineTitle}] Successfully ${modeAction} ${filesInOrder.length} clip(s) into <strong>${data.file}</strong>${modeDesc}${durInfo}! Preview the video below or click Download.`;
             statusEl.style.display = 'block';
 
             // 2. Show preview player card & configure download button
@@ -71,7 +82,7 @@
             const wrapper = document.getElementById('mergedVideoWrapper');
 
             if (titleSpan) {
-                titleSpan.innerHTML = mode === 'merge_crop' ? '🎬 Merged & Cropped Video (9:16)' : '🎬 Merged Video (Original)';
+                titleSpan.innerHTML = mode === 'merge_crop' ? `🎬 ${timelineTitle} - Merged & Cropped Video (9:16)` : `🎬 ${timelineTitle} - Merged Video (Original)`;
             }
 
             if (meta && meta.width && meta.height && metaBadge) {
@@ -121,7 +132,6 @@
 
 
 /* --- Task Processing Engine (Split, Crop, Audio) --- */
-    /* --- Task Processing Engine (Split, Crop, Audio) --- */
     async function processTask(taskName) {
         if (!currentSession) return;
         
@@ -168,56 +178,12 @@
                     }));
                 }
                 
-                // Calculate total duration for timeline header
-                const totalSec = currentClips.reduce((sum, cl) => sum + (cl.duration || 0), 0);
-                const th = Math.floor(totalSec / 3600);
-                const tm = Math.floor((totalSec % 3600) / 60);
-                const ts = (totalSec % 60).toFixed(1);
-                const totalFormatted = th > 0 ? `${th}h ${tm}m ${ts}s` : `${tm}m ${ts}s`;
-
-                let timelineHtml = `
-                <div class="timeline-container" id="timelineContainer">
-                    <div class="timeline-top-bar">
-                        <div class="timeline-meta-info">
-                            <span style="font-size:1.15rem;">🎞</span>
-                            <span><span id="timelineClipsCountText"><strong>${data.files.length} Clips Generated</strong></span> &bull; Total: <span id="timelineTotalDuration" style="font-family:monospace; color:var(--accent-color); font-weight:600;">${totalFormatted}</span></span>
-                        </div>
-                        <div class="timeline-actions">
-                            <button id="btnPlaySequence" class="btn btn-sequence-play btn-sm" onclick="togglePlaySequence()">
-                                ▶ Play Sequence
-                            </button>
-                            <button id="btnRestartSequence" class="btn btn-outline btn-sm" onclick="restartSequence()">
-                                ⏮ Restart
-                            </button>
-                            <button id="btnMergeOnly" class="btn btn-merge-download btn-sm" onclick="mergeClips('merge')" title="Merge all clips in original format and aspect ratio">
-                                ⚡ Only Merge
-                            </button>
-                            <button id="btnMergeCrop" class="btn btn-merge-crop btn-sm" onclick="mergeClips('merge_crop')" title="Merge all clips and format/stack into 9:16 vertical video">
-                                📐 Merge + Crop
-                            </button>
-                            <a href="/download-zip/${currentSession}" class="btn btn-outline btn-sm" download style="text-decoration:none;">
-                                📦 Download ZIP
-                            </a>
-                        </div>
-                    </div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-                        <span>💡 <strong>Drag left/right clip edges</strong> to trim duration with live scrubbing &bull; Drag cards or click <strong>◀ / ▶</strong> to change sequence.</span>
-                        <span style="font-size: 0.75rem; color: #94a3b8;">Scroll horizontally ↔ to see all clips</span>
-                    </div>
-                    <div class="timeline-track-wrapper" id="timelineTrackWrapper">
-                        <div class="timeline-track" id="timelineTrack">`;
-
-                data.files.forEach((f, idx) => {
-                    const detail = currentClips.find(cl => cl.filename === f) || {};
-                    timelineHtml += createTimelineClipCardHtml(f, idx, detail, data.files.length);
-                });
-
-                timelineHtml += `
-                        </div>
-                    </div>
-                </div>`;
-
+                timelineCounter = 1;
+                const timelineHtml = renderTimelineContainerHtml('timeline-1', 'Timeline 1', currentClips);
                 document.getElementById(c.outputs).innerHTML = timelineHtml;
+                updateTimelinesToolbarAndButtons();
+                updateTimelineIndices('timeline-1');
+                updateTimelineTotalDuration('timeline-1');
 
                 const mergeSection = document.getElementById('mergeSection');
                 if (mergeSection) {

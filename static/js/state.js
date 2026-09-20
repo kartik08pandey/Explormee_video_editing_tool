@@ -21,6 +21,8 @@ let startActualCrop = { x: 0, y: 0, w: 1280, h: 720 };
 let draggedTimelineCard = null;
 let activeTrim = null; // Holds { card, handleEl, handleSide, filename, origStart, origEnd, currentStart, currentEnd, origWidth, sourceTotalDur }
 let isTrimmingActive = false;
+let timelineCounter = 1;
+let activePlayingTimelineId = null;
 
 // Sequential Autoplay & Modal State
 let currentClips = [];
@@ -74,19 +76,43 @@ let activeTimelineIndex = -1;
     requestAnimationFrame(updateTimeOverlay);
 
 
-    function updateTimelineTotalDuration() {
-        const totalEl = document.getElementById('timelineTotalDuration');
-        if (!currentClips || currentClips.length === 0) {
-            if (totalEl) totalEl.innerText = '0.0s';
+    function updateTimelineTotalDuration(timelineId = null) {
+        let containers = [];
+        if (timelineId) {
+            const el = document.getElementById(`timelineContainer-${timelineId}`);
+            if (el) containers.push(el);
+        } else {
+            containers = Array.from(document.querySelectorAll('.timeline-container'));
+        }
+
+        if (containers.length === 0) {
+            const legacyEl = document.getElementById('timelineTotalDuration');
+            if (legacyEl) legacyEl.innerText = '0.0s';
             return;
         }
-        const totalSec = currentClips.reduce((sum, cl) => sum + (cl.duration || 0), 0);
-        const th = Math.floor(totalSec / 3600);
-        const tm = Math.floor((totalSec % 3600) / 60);
-        const ts = (totalSec % 60).toFixed(1);
-        const totalFormatted = th > 0 ? `${th}h ${tm}m ${ts}s` : `${tm}m ${ts}s`;
 
-        if (totalEl) {
-            totalEl.innerText = totalFormatted;
-        }
+        containers.forEach(container => {
+            const id = container.getAttribute('data-timeline-id');
+            const cards = container.querySelectorAll('.timeline-clip-card');
+            const totalEl = container.querySelector('.timeline-total-dur-text') || 
+                            document.getElementById(`timelineTotalDuration-${id}`) || 
+                            document.getElementById('timelineTotalDuration');
+
+            let totalSec = 0;
+            cards.forEach(card => {
+                const start = parseFloat(card.getAttribute('data-start') || '0');
+                const end = parseFloat(card.getAttribute('data-end') || '0');
+                const dur = (end > start) ? (end - start) : 0;
+                totalSec += dur;
+            });
+
+            const th = Math.floor(totalSec / 3600);
+            const tm = Math.floor((totalSec % 3600) / 60);
+            const ts = (totalSec % 60).toFixed(1);
+            const totalFormatted = th > 0 ? `${th}h ${tm}m ${ts}s` : `${tm}m ${ts}s`;
+
+            if (totalEl) {
+                totalEl.innerText = totalFormatted;
+            }
+        });
     }

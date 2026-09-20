@@ -51,12 +51,72 @@
 /* Interactive Horizontal Timeline Styles */
         /* --- Interactive Horizontal Timeline Styles --- */
         .timeline-container {
-            margin-top: 18px;
+            margin-top: 12px;
+            margin-bottom: 16px;
             background: #f8fafc;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-lg);
             padding: 16px;
             box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .timeline-container:focus-within {
+            border-color: #93c5fd;
+        }
+        .timeline-title-badge {
+            background: #e0f2fe;
+            color: #0369a1;
+            font-weight: 700;
+            font-size: 0.82rem;
+            padding: 3px 9px;
+            border-radius: 6px;
+            border: 1px solid #bae6fd;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            letter-spacing: 0.02em;
+        }
+        .btn-delete-timeline {
+            background: transparent;
+            border: 1px solid #cbd5e1;
+            color: #64748b;
+            border-radius: 6px;
+            padding: 5px 9px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.15s ease;
+            width: auto;
+        }
+        .btn-delete-timeline:hover {
+            background: #fef2f2;
+            color: #ef4444;
+            border-color: #fca5a5;
+        }
+        .timeline-track.dragover-track {
+            background: #1e293b !important;
+            outline: 2px dashed #38bdf8 !important;
+            outline-offset: -2px;
+        }
+        .timeline-empty-notice {
+            padding: 24px 16px;
+            color: #64748b;
+            font-size: 0.85rem;
+            text-align: center;
+            width: 100%;
+            min-width: 280px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            border: 1px dashed #334155;
+            border-radius: 8px;
+            margin: 4px;
+            user-select: none;
         }
         .timeline-top-bar {
             display: flex;
@@ -198,6 +258,25 @@
             padding: 2px 6px;
             border-radius: 4px;
         }
+        .clip-download-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: #94a3b8;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 3px 5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            line-height: 1;
+            text-decoration: none;
+        }
+        .clip-download-btn:hover {
+            background: rgba(34, 197, 94, 0.18);
+            border-color: rgba(34, 197, 94, 0.4);
+            color: #22c55e;
+        }
         .clip-duplicate-btn {
             background: transparent;
             border: 1px solid transparent;
@@ -262,51 +341,29 @@
         .clip-card-footer {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 4px;
+            justify-content: center;
             margin-top: 6px;
             border-top: 1px solid #334155;
-            padding-top: 8px;
-        }
-        .clip-nav-btn {
-            background: #0f172a;
-            border: 1px solid #334155;
-            color: #94a3b8;
-            padding: 3px 8px;
-            font-size: 0.75rem;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .clip-nav-btn:hover:not(:disabled) {
-            background: #334155;
-            color: white;
-        }
-        .clip-nav-btn:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-        }
-        .clip-card-actions {
-            display: flex;
-            gap: 4px;
+            padding-top: 6px;
         }
         .clip-action-btn {
             background: #334155;
             color: #f1f5f9;
             border: none;
-            padding: 4px 7px;
-            font-size: 0.75rem;
+            padding: 4px 8px;
+            font-size: 0.82rem;
             border-radius: 4px;
             cursor: pointer;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 3px;
-            transition: background 0.15s;
+            justify-content: center;
+            width: 100%;
+            transition: background 0.15s, color 0.15s;
         }
         .clip-action-btn:hover {
             background: #475569;
-            color: white;
+            color: #38bdf8;
         }
 
 

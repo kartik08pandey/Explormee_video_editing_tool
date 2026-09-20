@@ -1,18 +1,35 @@
 /* --- Sequential Autoplay Engine --- */
-    function togglePlaySequence() {
+    function togglePlaySequence(timelineId = null) {
         if (isPlayingSequence) {
-            pauseSequencePlayback();
+            if (!timelineId || activePlayingTimelineId === timelineId) {
+                pauseSequencePlayback(timelineId || activePlayingTimelineId);
+            } else {
+                pauseSequencePlayback(activePlayingTimelineId);
+                startSequencePlayback(timelineId);
+            }
         } else {
-            startSequencePlayback();
+            startSequencePlayback(timelineId);
         }
     }
 
-    function startSequencePlayback() {
-        sequenceClips = getTimelineClipsOrder();
-        if (!sequenceClips || sequenceClips.length === 0) return;
+    function startSequencePlayback(timelineId = null) {
+        if (!timelineId) {
+            timelineId = activePlayingTimelineId || document.querySelector('.timeline-container')?.getAttribute('data-timeline-id') || 'timeline-1';
+        }
+
+        if (activePlayingTimelineId && activePlayingTimelineId !== timelineId) {
+            pauseSequencePlayback(activePlayingTimelineId);
+        }
+
+        activePlayingTimelineId = timelineId;
+        sequenceClips = getTimelineClipsOrder(timelineId);
+        if (!sequenceClips || sequenceClips.length === 0) {
+            alert("This timeline has no clips to play.");
+            return;
+        }
         
         isPlayingSequence = true;
-        updateSequencePlayButton();
+        updateSequencePlayButton(timelineId);
         
         // If index is valid, resume from it; otherwise start from the beginning
         let startIndex = activeTimelineIndex;
@@ -20,42 +37,53 @@
             startIndex = 0;
         }
         
-        playClipInSequence(startIndex);
+        playClipInSequence(startIndex, timelineId);
     }
 
-    function pauseSequencePlayback() {
+    function pauseSequencePlayback(timelineId = null) {
         isPlayingSequence = false;
-        updateSequencePlayButton();
+        updateSequencePlayButton(timelineId || activePlayingTimelineId);
         if (videoPlayer) {
             videoPlayer.pause();
         }
     }
 
-    function restartSequence() {
-        sequenceClips = getTimelineClipsOrder();
+    function restartSequence(timelineId = null) {
+        if (!timelineId) {
+            timelineId = activePlayingTimelineId || document.querySelector('.timeline-container')?.getAttribute('data-timeline-id') || 'timeline-1';
+        }
+
+        if (activePlayingTimelineId && activePlayingTimelineId !== timelineId) {
+            pauseSequencePlayback(activePlayingTimelineId);
+        }
+
+        activePlayingTimelineId = timelineId;
+        sequenceClips = getTimelineClipsOrder(timelineId);
         if (!sequenceClips || sequenceClips.length === 0) return;
         
-        // Reset all progress bars
-        const track = document.getElementById('timelineTrack');
-        if (track) {
-            track.querySelectorAll('.clip-progress-bar').forEach(b => b.style.width = '0%');
+        // Reset all progress bars in this timeline
+        const container = document.getElementById(`timelineContainer-${timelineId}`) || 
+                          document.querySelector(`[data-timeline-id="${timelineId}"]`);
+        if (container) {
+            container.querySelectorAll('.clip-progress-bar').forEach(b => b.style.width = '0%');
         }
         
         isPlayingSequence = true;
-        updateSequencePlayButton();
-        playClipInSequence(0);
+        updateSequencePlayButton(timelineId);
+        playClipInSequence(0, timelineId);
     }
 
-    function playClipInSequence(index) {
+    function playClipInSequence(index, timelineId = null) {
+        if (!timelineId) timelineId = activePlayingTimelineId;
         if (!isPlayingSequence) return;
-        sequenceClips = getTimelineClipsOrder();
+        sequenceClips = getTimelineClipsOrder(timelineId);
         
         if (index >= sequenceClips.length) {
             // Sequence completed!
             isPlayingSequence = false;
-            updateSequencePlayButton();
+            updateSequencePlayButton(timelineId);
             activeTimelineIndex = -1;
-            highlightTimelineCard(-1);
+            highlightTimelineCard(-1, timelineId);
             showStatus('splitStatus', 'success', 'Sequence playback complete! Click "⚡ Only Merge" or "📐 Merge + Crop" to export.');
             return;
         }
@@ -63,7 +91,7 @@
         activeTimelineIndex = index;
         const clip = sequenceClips[index];
         
-        highlightTimelineCard(index);
+        highlightTimelineCard(index, timelineId);
         
         if (!currentSession) return;
         
@@ -73,7 +101,9 @@
         
         const banner = document.getElementById('activeVideoBanner');
         const title = document.getElementById('activeVideoTitle');
-        title.innerHTML = `<strong>Playing Sequence:</strong> Clip #${index + 1} of ${sequenceClips.length} (${clip.filename})`;
+        const container = document.getElementById(`timelineContainer-${timelineId}`) || document.querySelector(`[data-timeline-id="${timelineId}"]`);
+        const tlTitle = container?.querySelector('.timeline-title-badge')?.innerText || 'Timeline';
+        title.innerHTML = `<strong>Playing Sequence (${tlTitle}):</strong> Clip #${index + 1} of ${sequenceClips.length} (${clip.filename})`;
         banner.style.display = 'flex';
         
         videoPlayer.src = `/media/${currentSession}/${clip.filename}?t=${Date.now()}`;
@@ -81,10 +111,25 @@
         videoPlayer.play().catch(() => {});
     }
 
-    function highlightTimelineCard(index) {
-        const track = document.getElementById('timelineTrack');
-        if (!track) return;
-        const cards = track.querySelectorAll('.timeline-clip-card');
+    function highlightTimelineCard(index, timelineId = null) {
+        let container = null;
+        if (timelineId) {
+            container = document.getElementById(`timelineContainer-${timelineId}`) || 
+                        document.querySelector(`[data-timeline-id="${timelineId}"]`);
+        } else if (activePlayingTimelineId) {
+            container = document.getElementById(`timelineContainer-${activePlayingTimelineId}`) || 
+                        document.querySelector(`[data-timeline-id="${activePlayingTimelineId}"]`);
+        } else {
+            container = document.querySelector('.timeline-container');
+        }
+        if (!container) return;
+
+        // Clear active playing styling on all other containers
+        document.querySelectorAll('.timeline-clip-card.active-playing').forEach(c => {
+            if (!container.contains(c)) c.classList.remove('active-playing');
+        });
+
+        const cards = container.querySelectorAll('.timeline-clip-card');
         cards.forEach((card, i) => {
             const prog = card.querySelector('.clip-progress-bar');
             if (i === index) {
@@ -102,46 +147,52 @@
         });
     }
 
-    function updateSequencePlayButton() {
-        const btn = document.getElementById('btnPlaySequence');
-        if (!btn) return;
-        if (isPlayingSequence) {
-            btn.innerHTML = `⏸ Pause Sequence`;
-            btn.classList.add('playing');
-        } else {
-            btn.innerHTML = `▶ Play Sequence`;
-            btn.classList.remove('playing');
-        }
+    function updateSequencePlayButton(timelineId = null) {
+        const containers = document.querySelectorAll('.timeline-container');
+        containers.forEach(container => {
+            const id = container.getAttribute('data-timeline-id');
+            const btn = container.querySelector('.btn-sequence-play') || document.getElementById(`btnPlaySequence-${id}`) || document.getElementById('btnPlaySequence');
+            if (!btn) return;
+            if (isPlayingSequence && activePlayingTimelineId === id) {
+                btn.innerHTML = `⏸ Pause Sequence`;
+                btn.classList.add('playing');
+            } else {
+                btn.innerHTML = `▶ Play Sequence`;
+                btn.classList.remove('playing');
+            }
+        });
     }
 
-    function playSoloClip(filename, index) {
+    function playSoloClip(filename, index, timelineId = null) {
         pauseSequencePlayback();
         activeTimelineIndex = index;
-        highlightTimelineCard(index);
+        highlightTimelineCard(index, timelineId);
         loadIntoMainPlayer(filename, `Clip #${index + 1} (${filename})`);
     }
 
     // Video Player sequence listeners
     videoPlayer.addEventListener('ended', () => {
-        if (isPlayingSequence) {
-            const track = document.getElementById('timelineTrack');
-            if (track && activeTimelineIndex >= 0) {
-                const cards = track.querySelectorAll('.timeline-clip-card');
+        if (isPlayingSequence && activePlayingTimelineId) {
+            const container = document.getElementById(`timelineContainer-${activePlayingTimelineId}`) ||
+                              document.querySelector(`[data-timeline-id="${activePlayingTimelineId}"]`);
+            if (container && activeTimelineIndex >= 0) {
+                const cards = container.querySelectorAll('.timeline-clip-card');
                 if (cards[activeTimelineIndex]) {
                     const bar = cards[activeTimelineIndex].querySelector('.clip-progress-bar');
                     if (bar) bar.style.width = '100%';
                 }
             }
-            playClipInSequence(activeTimelineIndex + 1);
+            playClipInSequence(activeTimelineIndex + 1, activePlayingTimelineId);
         }
     });
 
     videoPlayer.addEventListener('timeupdate', () => {
-        if (isPlayingSequence && activeTimelineIndex >= 0 && videoPlayer.duration > 0) {
+        if (isPlayingSequence && activePlayingTimelineId && activeTimelineIndex >= 0 && videoPlayer.duration > 0) {
             const pct = (videoPlayer.currentTime / videoPlayer.duration) * 100;
-            const track = document.getElementById('timelineTrack');
-            if (track) {
-                const cards = track.querySelectorAll('.timeline-clip-card');
+            const container = document.getElementById(`timelineContainer-${activePlayingTimelineId}`) ||
+                              document.querySelector(`[data-timeline-id="${activePlayingTimelineId}"]`);
+            if (container) {
+                const cards = container.querySelectorAll('.timeline-clip-card');
                 if (cards[activeTimelineIndex]) {
                     const bar = cards[activeTimelineIndex].querySelector('.clip-progress-bar');
                     if (bar) bar.style.width = `${Math.min(100, Math.max(0, pct))}%`;
