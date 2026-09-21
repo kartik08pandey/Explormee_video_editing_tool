@@ -6,6 +6,8 @@ import shutil
 import zipfile
 import subprocess
 import time
+import threading
+import concurrent.futures
 from datetime import timedelta
 from flask import Flask, request, jsonify, render_template, send_file, send_from_directory
 from werkzeug.utils import secure_filename
@@ -15,6 +17,179 @@ app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2 GB upload limit
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.jinja_env.auto_reload = True
+
+# --- Background Task Manager for FFmpeg Operations ---
+# max_workers=2 ensures system stability and prevents CPU choking while allowing parallel workflows
+TASK_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="ffmpeg_worker")
+TASKS = {}
+TASKS_LOCK = threading.Lock()
+
+def create_task(task_type, target_func, *args, **kwargs):
+    """Register and submit a long-running job to the background thread pool."""
+    task_id = str(uuid.uuid4())
+    now = time.time()
+    with TASKS_LOCK:
+        # Prune tasks older than 30 minutes to prevent memory leaks
+        stale_ids = [tid for tid, t in TASKS.items() if now - t.get('created_at', now) > 1800]
+        for tid in stale_ids:
+            del TASKS[tid]
+            
+        TASKS[task_id] = {
+            'task_id': task_id,
+            'type': task_type,
+            'status': 'queued',
+            'progress': 0,
+            'message': 'Queued for processing...',
+            'result': None,
+            'error': None,
+            'created_at': now,
+            'updated_at': now,
+            '_proc': None
+        }
+
+    def runner():
+        with TASKS_LOCK:
+            if TASKS.get(task_id, {}).get('status') == 'cancelled':
+                return
+            TASKS[task_id]['status'] = 'processing'
+            TASKS[task_id]['message'] = 'Processing started...'
+            TASKS[task_id]['updated_at'] = time.time()
+
+        def set_progress(pct, msg=None):
+            with TASKS_LOCK:
+                if task_id in TASKS and TASKS[task_id]['status'] != 'cancelled':
+                    TASKS[task_id]['progress'] = max(0, min(100, round(pct)))
+                    if msg:
+                        TASKS[task_id]['message'] = msg
+                    TASKS[task_id]['updated_at'] = time.time()
+
+        def register_proc(proc):
+            with TASKS_LOCK:
+                if task_id in TASKS:
+                    TASKS[task_id]['_proc'] = proc
+
+        try:
+            result = target_func(set_progress=set_progress, register_proc=register_proc, *args, **kwargs)
+            with TASKS_LOCK:
+                if TASKS.get(task_id, {}).get('status') != 'cancelled':
+                    TASKS[task_id]['status'] = 'completed'
+                    TASKS[task_id]['progress'] = 100
+                    TASKS[task_id]['message'] = 'Completed successfully'
+                    TASKS[task_id]['result'] = result
+                    TASKS[task_id]['_proc'] = None
+                    TASKS[task_id]['updated_at'] = time.time()
+        except Exception as e:
+            with TASKS_LOCK:
+                if TASKS.get(task_id, {}).get('status') != 'cancelled':
+                    TASKS[task_id]['status'] = 'failed'
+                    TASKS[task_id]['error'] = str(e)
+                    TASKS[task_id]['message'] = f"Failed: {str(e)}"
+                    TASKS[task_id]['_proc'] = None
+                    TASKS[task_id]['updated_at'] = time.time()
+
+    TASK_EXECUTOR.submit(runner)
+    return task_id
+
+def get_task(task_id):
+    """Retrieve task state dictionary in a thread-safe manner."""
+    with TASKS_LOCK:
+        task = TASKS.get(task_id)
+        if not task:
+            return None
+        return {
+            'task_id': task['task_id'],
+            'type': task['type'],
+            'status': task['status'],
+            'progress': task['progress'],
+            'message': task['message'],
+            'result': task['result'],
+            'error': task['error'],
+            'created_at': task['created_at'],
+            'updated_at': task['updated_at']
+        }
+
+def cancel_task(task_id):
+    """Cancel a running task and terminate child FFmpeg process if active."""
+    with TASKS_LOCK:
+        task = TASKS.get(task_id)
+        if not task:
+            return False, "Task not found"
+        task['status'] = 'cancelled'
+        task['message'] = 'Cancelled by user'
+        task['updated_at'] = time.time()
+        proc = task.get('_proc')
+        if proc:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+            task['_proc'] = None
+        return True, "Task cancelled"
+
+def run_ffmpeg_command(cmd, total_duration=None, set_progress=None, register_proc=None):
+    """
+    Executes an FFmpeg command using subprocess.Popen with optional real-time progress parsing.
+    Drains stderr concurrently to prevent pipe buffer deadlock and registers process handle for cancellation.
+    """
+    use_progress_pipe = bool(total_duration and total_duration > 0 and set_progress)
+    actual_cmd = list(cmd)
+    
+    if use_progress_pipe:
+        out_file = actual_cmd.pop()
+        actual_cmd.extend(['-progress', 'pipe:1', '-nostats', out_file])
+
+    proc = subprocess.Popen(
+        actual_cmd,
+        stdout=subprocess.PIPE if use_progress_pipe else subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding='utf-8',
+        errors='replace'
+    )
+    
+    if register_proc:
+        register_proc(proc)
+
+    stderr_lines = []
+    def drain_stderr():
+        try:
+            for line in proc.stderr:
+                stderr_lines.append(line)
+                if len(stderr_lines) > 60:
+                    stderr_lines.pop(0)
+        except Exception:
+            pass
+
+    err_thread = threading.Thread(target=drain_stderr, daemon=True)
+    err_thread.start()
+
+    if use_progress_pipe:
+        while True:
+            line = proc.stdout.readline()
+            if not line and proc.poll() is not None:
+                break
+            if not line:
+                continue
+            line = line.strip()
+            if line.startswith('out_time='):
+                try:
+                    time_val = line.split('=', 1)[1].strip()
+                    cur_secs = parse_time_str(time_val)
+                    pct = min(99, max(0, (cur_secs / total_duration) * 100))
+                    if set_progress:
+                        set_progress(pct, f"Encoding... {int(pct)}%")
+                except Exception:
+                    pass
+            elif line == 'progress=end':
+                if set_progress:
+                    set_progress(100, "Finalizing output...")
+
+    proc.wait()
+    err_thread.join(timeout=1.0)
+
+    if proc.returncode != 0 and proc.returncode != -9 and proc.returncode != 1:
+        err_msg = "".join(stderr_lines[-20:]) if stderr_lines else "Unknown FFmpeg error"
+        raise RuntimeError(f"FFmpeg error (code {proc.returncode}): {err_msg}")
 
 @app.after_request
 def add_header(response):
@@ -271,31 +446,34 @@ def download_zip(session_id):
                 
     return send_from_directory(session_dir, zip_filename, as_attachment=True)
 
-@app.route('/split', methods=['POST'])
-def split_video():
-    data = request.json
-    session_id = secure_filename(data.get('session_id', ''))
-    filename = secure_filename(data.get('filename', ''))
-    duration_text = data.get('durations', '')
-    
-    try:
-        segments = parse_clip_segments(duration_text)
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-        
-    if not segments:
-        return jsonify({'error': 'No valid timestamps or ranges provided'}), 400
-        
-    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
-    input_path = os.path.join(session_dir, filename)
-    
-    if not os.path.exists(input_path):
-        return jsonify({'error': 'Source file not found'}), 404
-        
+# --- Background Task Endpoints ---
+
+@app.route('/tasks/<task_id>', methods=['GET'])
+def get_task_status(task_id):
+    """Poll task progress and status."""
+    task = get_task(task_id)
+    if not task:
+        return jsonify({'error': 'Task not found'}), 404
+    return jsonify(task)
+
+@app.route('/tasks/<task_id>/cancel', methods=['POST'])
+def cancel_task_route(task_id):
+    """Cancel an active task and abort any running FFmpeg process."""
+    success, msg = cancel_task(task_id)
+    if not success:
+        return jsonify({'error': msg}), 404
+    return jsonify({'message': msg})
+
+def _do_split(session_dir, input_path, segments, set_progress=None, register_proc=None):
     output_files = []
     clip_details = []
+    total_segs = len(segments)
     
     for i, seg in enumerate(segments):
+        if set_progress:
+            pct = (i / total_segs) * 100
+            set_progress(pct, f"Generating clip {i+1} of {total_segs}...")
+            
         if seg.get('name'):
             clean_name = secure_filename(seg['name'])
             if clean_name:
@@ -322,23 +500,51 @@ def split_video():
         ]
         
         try:
-            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-            output_files.append(out_name)
-            clip_details.append({
-                'filename': out_name,
-                'index': i + 1,
-                'duration': seg['duration'],
-                'duration_formatted': f"{seg['duration']:.2f}s",
-                'start_time': seg['start'],
-                'end_time': seg['end'],
-                'start_formatted': seg['start_formatted'],
-                'end_formatted': seg['end_formatted'],
-                'range_label': seg['range_label']
-            })
-        except subprocess.CalledProcessError as e:
-            return jsonify({'error': f"FFmpeg failed on clip {i+1} ({seg['range_label']}). Error snippet: {e.stderr.decode()[-200:]}"}), 500
+            run_ffmpeg_command(cmd, total_duration=None, set_progress=None, register_proc=register_proc)
+        except Exception as e:
+            raise RuntimeError(f"FFmpeg failed on clip {i+1} ({seg['range_label']}): {e}")
             
-    return jsonify({'message': 'Success', 'files': output_files, 'clip_details': clip_details})
+        output_files.append(out_name)
+        clip_details.append({
+            'filename': out_name,
+            'index': i + 1,
+            'duration': seg['duration'],
+            'duration_formatted': f"{seg['duration']:.2f}s",
+            'start_time': seg['start'],
+            'end_time': seg['end'],
+            'start_formatted': seg['start_formatted'],
+            'end_formatted': seg['end_formatted'],
+            'range_label': seg['range_label']
+        })
+        
+    if set_progress:
+        set_progress(100, f"Generated {total_segs} clip(s) successfully!")
+        
+    return {'files': output_files, 'clip_details': clip_details}
+
+@app.route('/split', methods=['POST'])
+def split_video():
+    data = request.json or {}
+    session_id = secure_filename(data.get('session_id', ''))
+    filename = secure_filename(data.get('filename', ''))
+    duration_text = data.get('durations', '')
+    
+    try:
+        segments = parse_clip_segments(duration_text)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+        
+    if not segments:
+        return jsonify({'error': 'No valid timestamps or ranges provided'}), 400
+        
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
+    input_path = os.path.join(session_dir, filename)
+    
+    if not os.path.exists(input_path):
+        return jsonify({'error': 'Source file not found'}), 404
+        
+    task_id = create_task('split', _do_split, session_dir, input_path, segments)
+    return jsonify({'task_id': task_id, 'status': 'queued', 'message': 'Splitting clips in background...'}), 202
 
 @app.route('/rename-clip', methods=['POST'])
 def rename_clip():
@@ -715,41 +921,10 @@ def split_clip():
         'part2': parts[1] if len(parts) > 1 else parts[0]
     })
 
-@app.route('/merge', methods=['POST'])
-def merge_clips():
-    data = request.json
-    session_id = secure_filename(data.get('session_id', ''))
-    files = data.get('files', [])
-    mode = data.get('mode', 'merge')  # 'merge' (Only Merge) or 'merge_crop' (Merge + Crop)
-    
-    if len(files) < 1:
-        return jsonify({'error': 'At least one clip is required to merge'}), 400
-        
-    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
-    if not os.path.exists(session_dir):
-        return jsonify({'error': 'Session not found'}), 404
-        
-    # Validate all files exist
-    secure_files = []
-    for f in files:
-        sf = secure_filename(f)
-        if not os.path.exists(os.path.join(session_dir, sf)):
-            return jsonify({'error': f'File {sf} not found in session'}), 404
-        secure_files.append(sf)
-        
-    # Create concat list for FFmpeg
-    concat_list_path = os.path.join(session_dir, 'concat_list.txt')
-    with open(concat_list_path, 'w', encoding='utf-8') as f:
-        for sf in secure_files:
-            f.write(f"file '{sf}'\n")
-            
-    timestamp = int(time.time())
-    if mode == 'merge_crop':
-        out_name = f"merged_cropped_{timestamp}.mp4"
-    else:
-        out_name = f"merged_{timestamp}.mp4"
-    out_path = os.path.join(session_dir, out_name)
-    
+def _do_merge(session_dir, concat_list_path, out_path, out_name, mode, total_duration, set_progress=None, register_proc=None):
+    if set_progress:
+        set_progress(5, "Starting merge process...")
+
     if mode == 'merge_crop':
         # 1. Scale/crop video to 1920x540
         # 2. Cut in middle into two equal 960x540 halves: Left (x=0..960), Right (x=960..1920)
@@ -790,18 +965,76 @@ def merge_clips():
             '-c:a', 'aac', '-b:a', '192k',
             out_path
         ]
-    
+
     try:
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        run_ffmpeg_command(cmd, total_duration=total_duration, set_progress=set_progress, register_proc=register_proc)
         meta = get_video_metadata(out_path)
-        return jsonify({'message': 'Success', 'file': out_name, 'mode': mode, 'metadata': meta})
-    except subprocess.CalledProcessError as e:
+        return {'file': out_name, 'mode': mode, 'metadata': meta}
+    except Exception as e:
         action_name = "Merging & Cropping" if mode == 'merge_crop' else "Merging"
-        return jsonify({'error': f"{action_name} failed. Error: {e.stderr.decode()[-200:]}"}), 500
+        raise RuntimeError(f"{action_name} failed: {e}")
+
+@app.route('/merge', methods=['POST'])
+def merge_clips():
+    data = request.json or {}
+    session_id = secure_filename(data.get('session_id', ''))
+    files = data.get('files', [])
+    mode = data.get('mode', 'merge')  # 'merge' (Only Merge) or 'merge_crop' (Merge + Crop)
+    
+    if len(files) < 1:
+        return jsonify({'error': 'At least one clip is required to merge'}), 400
+        
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
+    if not os.path.exists(session_dir):
+        return jsonify({'error': 'Session not found'}), 404
+        
+    # Validate all files exist and compute total duration for progress calculation
+    secure_files = []
+    total_duration = 0.0
+    for f in files:
+        sf = secure_filename(f)
+        f_path = os.path.join(session_dir, sf)
+        if not os.path.exists(f_path):
+            return jsonify({'error': f'File {sf} not found in session'}), 404
+        secure_files.append(sf)
+        m = get_video_metadata(f_path)
+        if m and m.get('duration'):
+            total_duration += m['duration']
+        
+    # Create concat list for FFmpeg
+    concat_list_path = os.path.join(session_dir, 'concat_list.txt')
+    with open(concat_list_path, 'w', encoding='utf-8') as f:
+        for sf in secure_files:
+            f.write(f"file '{sf}'\n")
+            
+    timestamp = int(time.time())
+    if mode == 'merge_crop':
+        out_name = f"merged_cropped_{timestamp}.mp4"
+    else:
+        out_name = f"merged_{timestamp}.mp4"
+    out_path = os.path.join(session_dir, out_name)
+    
+    task_id = create_task('merge', _do_merge, session_dir, concat_list_path, out_path, out_name, mode, total_duration)
+    return jsonify({'task_id': task_id, 'status': 'queued', 'message': 'Merge task queued in background...'}), 202
+
+def _do_crop(session_dir, input_path, out_path, out_name, x, y, w, h, duration, set_progress=None, register_proc=None):
+    cmd = [
+        'ffmpeg', '-y', 
+        '-i', input_path, 
+        '-vf', f'crop={w}:{h}:{x}:{y}', 
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', 
+        '-c:a', 'copy', 
+        out_path
+    ]
+    try:
+        run_ffmpeg_command(cmd, total_duration=duration, set_progress=set_progress, register_proc=register_proc)
+        return {'file': out_name}
+    except Exception as e:
+        raise RuntimeError(f"Cropping failed: {e}")
 
 @app.route('/crop', methods=['POST'])
 def crop_video():
-    data = request.json
+    data = request.json or {}
     session_id = secure_filename(data.get('session_id', ''))
     filename = secure_filename(data.get('filename', ''))
     
@@ -822,24 +1055,22 @@ def crop_video():
     out_name = "cropped_video.mp4"
     out_path = os.path.join(session_dir, out_name)
     
-    cmd = [
-        'ffmpeg', '-y', 
-        '-i', input_path, 
-        '-vf', f'crop={w}:{h}:{x}:{y}', 
-        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', 
-        '-c:a', 'copy', 
-        out_path
-    ]
+    meta = get_video_metadata(input_path)
+    duration = meta.get('duration') if meta else None
     
+    task_id = create_task('crop', _do_crop, session_dir, input_path, out_path, out_name, x, y, w, h, duration)
+    return jsonify({'task_id': task_id, 'status': 'queued', 'message': 'Crop task queued in background...'}), 202
+
+def _do_extract_audio(session_dir, input_path, out_path, out_name, cmd, duration, set_progress=None, register_proc=None):
     try:
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-        return jsonify({'message': 'Success', 'file': out_name})
-    except subprocess.CalledProcessError as e:
-        return jsonify({'error': f"Cropping failed. Verify dimensions are within video limits. Error: {e.stderr.decode()[-200:]}"}), 500
+        run_ffmpeg_command(cmd, total_duration=duration, set_progress=set_progress, register_proc=register_proc)
+        return {'file': out_name}
+    except Exception as e:
+        raise RuntimeError(f"Audio extraction failed: {e}")
 
 @app.route('/extract-audio', methods=['POST'])
 def extract_audio():
-    data = request.json
+    data = request.json or {}
     session_id = secure_filename(data.get('session_id', ''))
     filename = secure_filename(data.get('filename', ''))
     fmt = data.get('format', 'mp3').lower()
@@ -882,11 +1113,9 @@ def extract_audio():
         
     cmd.append(out_path)
     
-    try:
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-        return jsonify({'message': 'Success', 'file': out_name})
-    except subprocess.CalledProcessError as e:
-        return jsonify({'error': f"Audio extraction failed. Error: {e.stderr.decode()[-200:]}"}), 500
+    duration = metadata.get('duration') if metadata else None
+    task_id = create_task('extract-audio', _do_extract_audio, session_dir, input_path, out_path, out_name, cmd, duration)
+    return jsonify({'task_id': task_id, 'status': 'queued', 'message': 'Audio extraction task queued in background...'}), 202
 
 if __name__ == '__main__':
     print("\n--- Starting Local Video Editor ---")
