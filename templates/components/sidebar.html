@@ -16,6 +16,21 @@
                 Import Video
             </button>
             <div id="uploadStatus" class="status-box" style="margin-top: 12px;"></div>
+            <div class="upload-progress-wrap" id="uploadProgressWrap">
+                <div class="upload-progress-header">
+                    <span class="upload-progress-filename" id="uploadFileName"></span>
+                    <span class="upload-progress-pct" id="uploadPct">0%</span>
+                </div>
+                <div class="upload-progress-track">
+                    <div class="upload-progress-bar" id="uploadBar"></div>
+                </div>
+                <div class="upload-progress-meta">
+                    <span id="uploadSize"></span>
+                    <span id="uploadSpeed"></span>
+                    <span id="uploadETA"></span>
+                    <button class="upload-cancel-btn" id="uploadCancelBtn" type="button">Cancel</button>
+                </div>
+            </div>
         </div>
 
         <!-- Generate Clips Input & Button -->
