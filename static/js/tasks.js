@@ -299,6 +299,9 @@ async function processTask(taskName) {
                 </ul>`;
             document.getElementById(c.outputs).innerHTML = html;
         }
+
+        // Persist workspace after any task completes
+        saveWorkspaceState();
         
     } catch (err) {
         showStatus(c.status, 'error', err.message);

@@ -446,6 +446,85 @@ def download_zip(session_id):
                 
     return send_from_directory(session_dir, zip_filename, as_attachment=True)
 
+# --- Session Persistence Endpoints ---
+
+@app.route('/session/<session_id>/save', methods=['POST'])
+def save_session(session_id):
+    """Persist workspace state to session_state.json on disk."""
+    session_id = secure_filename(session_id)
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
+    
+    if not os.path.isdir(session_dir):
+        return jsonify({'error': 'Session not found'}), 404
+    
+    state = request.get_json(silent=True)
+    if not state:
+        return jsonify({'error': 'No state payload'}), 400
+    
+    state_path = os.path.join(session_dir, 'session_state.json')
+    try:
+        with open(state_path, 'w', encoding='utf-8') as f:
+            json.dump(state, f, ensure_ascii=False)
+    except Exception as e:
+        return jsonify({'error': f'Failed to save state: {str(e)}'}), 500
+    
+    return jsonify({'status': 'saved'})
+
+
+@app.route('/session/<session_id>', methods=['GET'])
+def get_session(session_id):
+    """Return saved workspace state, validating that files still exist on disk."""
+    session_id = secure_filename(session_id)
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
+    
+    if not os.path.isdir(session_dir):
+        return jsonify({'valid': False, 'reason': 'session_not_found'}), 404
+    
+    state_path = os.path.join(session_dir, 'session_state.json')
+    if not os.path.isfile(state_path):
+        return jsonify({'valid': False, 'reason': 'no_saved_state'}), 404
+    
+    try:
+        with open(state_path, 'r', encoding='utf-8') as f:
+            state = json.load(f)
+    except Exception:
+        return jsonify({'valid': False, 'reason': 'corrupted_state'}), 500
+    
+    # Validate source video still exists
+    source_file = state.get('filename', '')
+    if not source_file or not os.path.isfile(os.path.join(session_dir, source_file)):
+        return jsonify({'valid': False, 'reason': 'source_video_missing'})
+    
+    # Validate each clip file, collecting missing ones
+    missing_clips = []
+    current_clips = state.get('current_clips', [])
+    for clip in current_clips:
+        clip_file = clip.get('filename', '')
+        if clip_file and not os.path.isfile(os.path.join(session_dir, clip_file)):
+            missing_clips.append(clip_file)
+    
+    return jsonify({
+        'valid': True,
+        'state': state,
+        'missing_clips': missing_clips
+    })
+
+
+@app.route('/session/<session_id>', methods=['DELETE'])
+def delete_session(session_id):
+    """Remove session directory and all files from disk."""
+    session_id = secure_filename(session_id)
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
+    
+    if os.path.isdir(session_dir):
+        try:
+            shutil.rmtree(session_dir)
+        except Exception as e:
+            return jsonify({'error': f'Failed to delete session: {str(e)}'}), 500
+    
+    return jsonify({'status': 'deleted'})
+
+
 # --- Background Task Endpoints ---
 
 @app.route('/tasks/<task_id>', methods=['GET'])

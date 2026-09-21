@@ -112,6 +112,7 @@
             }
             
             cancelRenameClip(idx);
+            saveWorkspaceState();
             
         } catch (err) {
             if (errEl) {
@@ -173,6 +174,7 @@
             }
             
             renderModalClip();
+            saveWorkspaceState();
         } catch (err) {
             alert(err.message);
         }

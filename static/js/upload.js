@@ -216,6 +216,12 @@
             if (cropEditor) cropEditor.style.display = 'none';
 
             videoPlayer.src = `/media/${currentSession}/${currentFilename}`;
+
+            const newProjBtn = document.getElementById('btnNewProject');
+            if (newProjBtn) newProjBtn.style.display = 'inline-flex';
+
+            // Persist the new session to localStorage + server
+            saveWorkspaceState();
         });
 
         // --- Network / server error ---

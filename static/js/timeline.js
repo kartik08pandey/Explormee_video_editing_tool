@@ -60,6 +60,7 @@
             }
 
             sourceTimelineId = null;
+            saveWorkspaceState();
         }
     });
 
@@ -113,6 +114,7 @@
         }
         updateTimelineIndices(timelineId);
         updateTimelineTotalDuration(timelineId);
+        saveWorkspaceState();
     }
 
     function updateTimelineIndices(timelineId = null) {
@@ -303,6 +305,7 @@
             newContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }, 100);
 
+        saveWorkspaceState();
         return timelineId;
     }
 
@@ -336,6 +339,7 @@
         setTimeout(() => {
             container.remove();
             updateTimelinesToolbarAndButtons();
+            saveWorkspaceState();
         }, 200);
     }
 
@@ -501,6 +505,7 @@
             // Re-index this timeline's cards (#1, #2, etc.) and update duration
             updateTimelineIndices(timelineId);
             updateTimelineTotalDuration(timelineId);
+            saveWorkspaceState();
 
             // Enable sequence / merge buttons on this timeline
             if (container) {
@@ -598,6 +603,8 @@
                     console.warn('Failed to delete clip file from server:', err);
                 }
             }
+
+            saveWorkspaceState();
         }, 200);
     }
 
@@ -853,6 +860,7 @@
             }
 
             showStatus('splitStatus', 'success', `✂️ Clip "${filename}" trimmed to ${data.duration_formatted} (${data.range_label})!`);
+            saveWorkspaceState();
 
         } catch (err) {
             if (loadingOverlay) loadingOverlay.remove();
@@ -1285,6 +1293,7 @@
 
             closeSplitClipModal();
             showStatus('splitStatus', 'success', `✂️ Clip successfully split into ${parts.length} clips! Delete any piece with 🗑 or rearrange on the timeline.`);
+            saveWorkspaceState();
 
         } catch (err) {
             alert(`Failed to split clip: ${err.message}`);
