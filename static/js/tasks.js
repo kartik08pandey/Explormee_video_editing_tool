@@ -252,6 +252,8 @@ async function processTask(taskName) {
             
             timelineCounter = 1;
             const timelineHtml = renderTimelineContainerHtml('timeline-1', 'Timeline 1', currentClips);
+            pushCurrentStateToUndo();
+
             document.getElementById(c.outputs).innerHTML = timelineHtml;
             updateTimelinesToolbarAndButtons();
             updateTimelineIndices('timeline-1');

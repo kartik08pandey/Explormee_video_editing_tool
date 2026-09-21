@@ -237,6 +237,8 @@ function clearSavedWorkspace(resetServer = true) {
     activeClipIndex = -1;
     activeTimelineIndex = -1;
 
+    clearHistory();
+
     // Clean server side
     if (resetServer && sessionId) {
         fetch(`/session/${sessionId}`, { method: 'DELETE' }).catch(() => {});
@@ -373,4 +375,110 @@ function _showRestoreToast(filename) {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 400);
     }, 3000);
+}
+
+// --- Timeline Undo / Redo History Engine ---
+const MAX_HISTORY_STATES = 30;
+let undoStack = [];
+let redoStack = [];
+let isNavigatingHistory = false;
+
+function pushCurrentStateToUndo() {
+    if (isNavigatingHistory || !currentSession) return;
+    const snapshot = serializeWorkspaceState();
+    if (!snapshot) return;
+
+    // Deduplicate against the latest undo state
+    if (undoStack.length > 0) {
+        const top = undoStack[undoStack.length - 1];
+        if (JSON.stringify(top.timelines) === JSON.stringify(snapshot.timelines) &&
+            JSON.stringify(top.current_clips) === JSON.stringify(snapshot.current_clips)) {
+            return;
+        }
+    }
+
+    undoStack.push(snapshot);
+    if (undoStack.length > MAX_HISTORY_STATES) {
+        undoStack.shift();
+    }
+    redoStack = [];
+    updateUndoRedoButtons();
+}
+
+function undoTimelineAction() {
+    if (undoStack.length === 0 || !currentSession) return;
+
+    const currentSnapshot = serializeWorkspaceState();
+    if (currentSnapshot) {
+        redoStack.push(currentSnapshot);
+    }
+
+    const previousSnapshot = undoStack.pop();
+    if (!previousSnapshot) return;
+
+    isNavigatingHistory = true;
+    try {
+        restoreWorkspace(previousSnapshot, []);
+        saveWorkspaceState();
+        showHistoryToast('↩ Undone');
+    } finally {
+        isNavigatingHistory = false;
+        updateUndoRedoButtons();
+    }
+}
+
+function redoTimelineAction() {
+    if (redoStack.length === 0 || !currentSession) return;
+
+    const currentSnapshot = serializeWorkspaceState();
+    if (currentSnapshot) {
+        undoStack.push(currentSnapshot);
+    }
+
+    const nextSnapshot = redoStack.pop();
+    if (!nextSnapshot) return;
+
+    isNavigatingHistory = true;
+    try {
+        restoreWorkspace(nextSnapshot, []);
+        saveWorkspaceState();
+        showHistoryToast('↪ Redone');
+    } finally {
+        isNavigatingHistory = false;
+        updateUndoRedoButtons();
+    }
+}
+
+function updateUndoRedoButtons() {
+    const btnUndo = document.getElementById('btnUndo');
+    const btnRedo = document.getElementById('btnRedo');
+    if (btnUndo) {
+        btnUndo.disabled = (undoStack.length === 0);
+    }
+    if (btnRedo) {
+        btnRedo.disabled = (redoStack.length === 0);
+    }
+}
+
+function clearHistory() {
+    undoStack = [];
+    redoStack = [];
+    updateUndoRedoButtons();
+}
+
+function showHistoryToast(msg) {
+    const existing = document.getElementById('historyToast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'historyToast';
+    toast.className = 'history-toast';
+    toast.innerText = msg;
+    document.body.appendChild(toast);
+
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 250);
+    }, 1200);
 }

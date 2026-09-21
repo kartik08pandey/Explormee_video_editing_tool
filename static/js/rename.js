@@ -67,6 +67,8 @@
             
             const confirmedName = data.new_name;
             
+            pushCurrentStateToUndo();
+
             // 1. Update card DOM
             const card = document.querySelector(`.timeline-clip-card[data-index="${idx}"]`);
             if (card) {
@@ -153,6 +155,9 @@
             
             const oldName = clip.filename;
             const confirmedName = data.new_name;
+
+            pushCurrentStateToUndo();
+
             clip.filename = confirmedName;
             
             // Update timeline card if present

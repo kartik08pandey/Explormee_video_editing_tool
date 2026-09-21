@@ -15,10 +15,36 @@
                 if (mv.paused) mv.play(); else mv.pause();
             }
         }
+
+        // Global Undo / Redo shortcuts (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z)
+        if (!e.target.tagName || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+            return;
+        }
+
+        const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+        if (!isCtrlOrCmd) return;
+
+        if (e.key === 'z' || e.key === 'Z') {
+            if (e.shiftKey) {
+                // Ctrl+Shift+Z => Redo
+                e.preventDefault();
+                redoTimelineAction();
+            } else {
+                // Ctrl+Z => Undo
+                e.preventDefault();
+                undoTimelineAction();
+            }
+        } else if (e.key === 'y' || e.key === 'Y') {
+            // Ctrl+Y => Redo
+            e.preventDefault();
+            redoTimelineAction();
+        }
     });
 
 // --- Workspace State Initialization & Restore on Load ---
 function initApp() {
+    updateUndoRedoButtons();
+
     // 1. Setup "Start New Project" button
     const btnNew = document.getElementById('btnNewProject');
     if (btnNew) {

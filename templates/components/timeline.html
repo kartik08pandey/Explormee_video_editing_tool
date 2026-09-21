@@ -4,10 +4,29 @@
                     <span style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">🎞 Timelines</span>
                     <span id="timelinesCountBadge" class="badge-pill" style="background: #e2e8f0; color: #475569;">1</span>
                 </div>
-                <button id="btnAddTimeline" class="btn btn-outline btn-sm" onclick="addNewTimeline()" style="width: auto; padding: 6px 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    Add Timeline
-                </button>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div class="history-controls-group" style="display: inline-flex; align-items: center; gap: 4px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 2px;">
+                        <button id="btnUndo" class="btn btn-outline btn-sm btn-history" onclick="undoTimelineAction()" title="Undo last action (Ctrl+Z)" disabled style="padding: 5px 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; border: none; background: transparent;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="1 4 1 10 7 10"></polyline>
+                                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                            </svg>
+                            <span>Undo</span>
+                        </button>
+                        <div style="width: 1px; height: 16px; background: #cbd5e1;"></div>
+                        <button id="btnRedo" class="btn btn-outline btn-sm btn-history" onclick="redoTimelineAction()" title="Redo last action (Ctrl+Y / Ctrl+Shift+Z)" disabled style="padding: 5px 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; border: none; background: transparent;">
+                            <span>Redo</span>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <path d="M20.49 15a9 9 0 0 1-2.12-9.36L23 10"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <button id="btnAddTimeline" class="btn btn-outline btn-sm" onclick="addNewTimeline()" style="width: auto; padding: 6px 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Add Timeline
+                    </button>
+                </div>
             </div>
             <div id="splitOutputs"></div>
             

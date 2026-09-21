@@ -185,3 +185,53 @@
             color: #0f172a;
             border-color: #94a3b8;
         }
+
+        /* History Controls (Undo / Redo) */
+        .history-controls-group {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            transition: border-color 0.15s ease;
+        }
+        .btn-history {
+            color: #475569;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .btn-history:hover:not(:disabled) {
+            background: #e2e8f0 !important;
+            color: #0f172a;
+        }
+        .btn-history:active:not(:disabled) {
+            transform: scale(0.96);
+        }
+        .btn-history:disabled {
+            opacity: 0.38;
+            cursor: not-allowed;
+        }
+
+        /* History Action Toast */
+        .history-toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(8px);
+            color: #f8fafc;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 1000;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .history-toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }

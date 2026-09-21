@@ -8,6 +8,7 @@
         }
         const card = e.target.closest('.timeline-clip-card');
         if (card) {
+            pushCurrentStateToUndo();
             draggedTimelineCard = card;
             const container = card.closest('.timeline-container');
             sourceTimelineId = container ? container.getAttribute('data-timeline-id') : null;
@@ -100,6 +101,7 @@
     }
 
     function shiftTimelineClip(btn, direction) {
+        pushCurrentStateToUndo();
         const card = btn.closest('.timeline-clip-card');
         if (!card) return;
         const track = card.closest('.timeline-track');
@@ -279,6 +281,8 @@
         const outputs = document.getElementById('splitOutputs');
         if (!outputs) return;
 
+        pushCurrentStateToUndo();
+
         timelineCounter++;
         const timelineId = `timeline-${timelineCounter}`;
         const timelineTitle = `Timeline ${timelineCounter}`;
@@ -325,6 +329,8 @@
                 return;
             }
         }
+
+        pushCurrentStateToUndo();
 
         // Stop playback if actively playing on this timeline
         if (activePlayingTimelineId === timelineId && isPlayingSequence) {
@@ -451,6 +457,8 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Duplication failed');
 
+            pushCurrentStateToUndo();
+
             const newFilename = data.new_filename;
             const origDetail = currentClips.find(c => c.filename === filename) || {};
             const meta = data.metadata || {};
@@ -531,6 +539,8 @@
     }
 
     async function deleteTimelineClip(btn, filename) {
+        pushCurrentStateToUndo();
+
         const card = btn.closest('.timeline-clip-card');
         if (!card) return;
         const container = card.closest('.timeline-container');
@@ -591,19 +601,7 @@
                 }
             }
 
-            // 6. Delete clip from server session directory in background
-            if (currentSession && filename) {
-                try {
-                    await fetch('/delete-clip', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ session_id: currentSession, filename: filename })
-                    });
-                } catch (err) {
-                    console.warn('Failed to delete clip file from server:', err);
-                }
-            }
-
+            // 6. Preserve clip on disk for Undo/Redo capability (purged on New Project / session reset)
             saveWorkspaceState();
         }, 200);
     }
@@ -617,6 +615,8 @@
 
         const card = e.target.closest('.timeline-clip-card');
         if (!card || !currentSession) return;
+
+        pushCurrentStateToUndo();
 
         const filename = card.getAttribute('data-filename');
         let startSec = parseFloat(card.getAttribute('data-start'));
@@ -1224,6 +1224,8 @@
 
             const parts = data.parts || [data.part1, data.part2];
             if (!parts || parts.length < 2) throw new Error('Invalid response from server');
+
+            pushCurrentStateToUndo();
 
             const card1 = document.querySelector(`.timeline-clip-card[data-filename="${activeSplitClipFilename}"]`);
             const container = card1 ? card1.closest('.timeline-container') : null;
