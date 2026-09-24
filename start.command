@@ -24,7 +24,12 @@ fi
 # 2. Auto-update from GitHub if Git is available
 if command -v git &> /dev/null && [ -d ".git" ]; then
     echo "[1/4] Checking for latest updates from GitHub..."
-    git pull origin main 2>/dev/null || true
+    if git fetch origin main 2>/dev/null; then
+        git reset --hard origin/main 2>/dev/null || true
+        echo "  [OK] Synced to latest version."
+    else
+        echo "  [!] Could not reach GitHub. Running local version."
+    fi
     echo ""
 fi
 
