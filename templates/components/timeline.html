@@ -2,10 +2,10 @@
             <div id="timelinesControlBar" style="display: none; justify-content: space-between; align-items: center; margin-top: 18px; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">🎞 Timelines</span>
-                    <span id="timelinesCountBadge" class="badge-pill" style="background: #e2e8f0; color: #475569;">1</span>
+                    <span id="timelinesCountBadge" class="badge-pill" style="background: var(--surface-secondary); color: var(--text-secondary);">1</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <div class="history-controls-group" style="display: inline-flex; align-items: center; gap: 4px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 2px;">
+                    <div class="history-controls-group" style="display: inline-flex; align-items: center; gap: 4px; background: var(--surface-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 2px;">
                         <button id="btnUndo" class="btn btn-outline btn-sm btn-history" onclick="undoTimelineAction()" title="Undo last action (Ctrl+Z)" disabled style="padding: 5px 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; border: none; background: transparent;">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="1 4 1 10 7 10"></polyline>
@@ -13,7 +13,7 @@
                             </svg>
                             <span>Undo</span>
                         </button>
-                        <div style="width: 1px; height: 16px; background: #cbd5e1;"></div>
+                        <div style="width: 1px; height: 16px; background: var(--border-color);"></div>
                         <button id="btnRedo" class="btn btn-outline btn-sm btn-history" onclick="redoTimelineAction()" title="Redo last action (Ctrl+Y / Ctrl+Shift+Z)" disabled style="padding: 5px 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; border: none; background: transparent;">
                             <span>Redo</span>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">

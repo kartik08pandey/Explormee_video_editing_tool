@@ -13,6 +13,7 @@ const emptyWorkspaceState = document.getElementById('emptyWorkspaceState');
 // Visual Crop State
 let actualCrop = { x: 0, y: 0, w: 1280, h: 720 };
 let isCropToolActive = false;
+let isDragging = false;
 let dragAction = null; // 'move', 'nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'
 let startMouseX = 0, startMouseY = 0;
 let startActualCrop = { x: 0, y: 0, w: 1280, h: 720 };

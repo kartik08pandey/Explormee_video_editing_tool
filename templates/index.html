@@ -4,8 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Local Video Editor</title>
+    <!-- Theme Initialization (Runs immediately to prevent flash) -->
+    <script>
+        (function() {
+            var saved = localStorage.getItem('video_editor_theme');
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            var theme = (saved === 'dark' || saved === 'light') ? saved : (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.style.colorScheme = theme;
+        })();
+    </script>
     <!-- Stylesheets -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <script src="{{ url_for('static', filename='js/theme.js') }}?v=3"></script>
 </head>
 <body>
 
