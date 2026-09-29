@@ -274,6 +274,11 @@ function restoreWorkspace(state, missingClips = []) {
         const cropText = document.getElementById('cropToggleText');
         if (cropText) cropText.innerText = 'Crop Video';
     }
+    const speedToggleBtn = document.getElementById('btnPlayerSpeed');
+    if (speedToggleBtn) speedToggleBtn.style.display = 'flex';
+    if (typeof openSpeedForMasterVideo === 'function') {
+        openSpeedForMasterVideo();
+    }
     isCropToolActive = false;
     const cropEditorEl = document.getElementById('cropEditor');
     if (cropEditorEl) cropEditorEl.style.display = 'none';

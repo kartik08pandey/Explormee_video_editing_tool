@@ -212,6 +212,11 @@
                 cropToggleBtn.classList.remove('active');
                 document.getElementById('cropToggleText').innerText = 'Crop Video';
             }
+            const speedToggleBtn = document.getElementById('btnPlayerSpeed');
+            if (speedToggleBtn) speedToggleBtn.style.display = 'flex';
+            if (typeof openSpeedForMasterVideo === 'function') {
+                openSpeedForMasterVideo();
+            }
             isCropToolActive = false;
             if (cropEditor) cropEditor.style.display = 'none';
 

@@ -20,3 +20,23 @@
         .meta-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; margin-bottom: 16px; }
         .meta-table th, .meta-table td { padding: 8px 0; border-bottom: 1px solid var(--border-color); text-align: left; }
         .meta-table th { color: var(--text-secondary); font-weight: 500; width: 40%; }
+
+/* Speed Tool in Sidebar */
+@keyframes speedCardPulse {
+    0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+    40% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.25); border-color: #f59e0b; }
+    100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+.speed-card-highlight {
+    animation: speedCardPulse 1.2s ease-out;
+    border-color: #f59e0b !important;
+}
+.speed-preset-chip {
+    transition: all 0.15s ease;
+    font-weight: 600;
+}
+.speed-preset-chip.active {
+    background: rgba(245, 158, 11, 0.2) !important;
+    border-color: #f59e0b !important;
+    color: #f59e0b !important;
+}

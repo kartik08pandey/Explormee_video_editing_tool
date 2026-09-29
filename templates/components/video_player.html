@@ -5,6 +5,9 @@
                     <span id="activeVideoTitle" style="font-weight: 500; font-size: 0.875rem;">Now Previewing</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px;">
+                    <button id="btnBannerSpeed" class="btn btn-sm" onclick="openSpeedForActiveVideo()" style="background: rgba(245, 158, 11, 0.18); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 4px 10px; font-size: 0.8rem; font-weight: 600; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Adjust speed of this video/clip">
+                        ⚡ Speed
+                    </button>
                     <button id="btnBannerSplitAtPlayhead" class="btn btn-sm" onclick="splitActiveVideoAtPlayhead()" style="display: none; background: rgba(245, 158, 11, 0.18); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 4px 10px; font-size: 0.8rem; font-weight: 600; border-radius: 4px; cursor: pointer;" title="Split this clip at the current playhead position">
                         ✂️ Split at Playhead
                     </button>
@@ -15,7 +18,10 @@
             <div class="video-container" id="videoContainer">
                 <video id="videoPlayer" controls></video>
                 
-                <!-- Top-Right Crop Toggle Button -->
+                <!-- Top-Right Player Quick Action Buttons -->
+                <button id="btnPlayerSpeed" class="btn-crop-toggle" onclick="openSpeedForActiveVideo()" title="Adjust Video Speed in Sidebar" style="display: none; right: 135px; background: rgba(15, 23, 42, 0.85); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.5);">
+                    <span>⚡</span> <span>Speed</span>
+                </button>
                 <button id="btnToggleCropOverlay" class="btn-crop-toggle" onclick="toggleCropOverlay()" title="Toggle Interactive Crop Box" style="display: none;">
                     <span>✂️</span> <span id="cropToggleText">Crop Video</span>
                 </button>

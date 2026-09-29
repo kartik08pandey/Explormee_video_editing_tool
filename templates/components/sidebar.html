@@ -119,6 +119,130 @@
             <div id="cropOutputs"></div>
         </div>
 
+        <!-- Video Speed Tool -->
+        <div class="card tools-section" id="speedCard">
+            <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                    <span style="color: #f59e0b; font-size: 1.1rem;">⚡</span> Video Speed
+                </span>
+                <span id="speedTargetTypeBadge" class="badge-pill" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.72rem; padding: 2px 7px;">
+                    Main Video
+                </span>
+            </div>
+
+            <!-- Target Selection Tabs -->
+            <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+                <button type="button" id="tabSpeedMaster" class="btn btn-sm speed-tab-btn active" onclick="openSpeedForMasterVideo()" style="flex: 1; padding: 4px 4px; font-size: 0.73rem; font-weight: 600;">
+                    🎬 Main Video
+                </button>
+                <button type="button" id="tabSpeedClip" class="btn btn-outline btn-sm speed-tab-btn" onclick="focusCurrentOrFirstClip()" style="flex: 1; padding: 4px 4px; font-size: 0.73rem; font-weight: 600;">
+                    📹 Timeline Clip
+                </button>
+                <button type="button" id="tabSpeedMerged" class="btn btn-outline btn-sm speed-tab-btn" onclick="openSpeedForMergedVideo()" style="display: none; flex: 1; padding: 4px 4px; font-size: 0.73rem; font-weight: 600;">
+                    🎞 Merged
+                </button>
+            </div>
+
+            <!-- Target Video Info Box -->
+            <div style="background: var(--surface-secondary, #0f172a); border: 1px solid var(--border-color, #334155); border-radius: 6px; padding: 8px 10px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-size: 0.74rem; color: var(--text-secondary); font-weight: 500;">Target:</span>
+                    <span id="speedTargetName" style="font-family: monospace; font-size: 0.78rem; font-weight: 600; color: var(--text-primary); max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        (No video)
+                    </span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.74rem; color: var(--text-secondary); font-weight: 500;">Duration:</span>
+                    <span style="font-family: monospace; font-size: 0.8rem; font-weight: 700;">
+                        <span id="speedOrigDurText" style="color: var(--text-secondary);">00:00.00</span>
+                        <span style="color: var(--text-secondary); margin: 0 2px;">➔</span>
+                        <span id="speedNewDurText" style="color: #38bdf8;">00:00.00</span>
+                        <span id="speedDiffBadge" style="font-size: 0.68rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 1px 4px; border-radius: 3px; margin-left: 3px;">-0.0s</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Speed Presets Chips -->
+            <div style="margin-bottom: 10px;">
+                <label style="display: block; font-size: 0.74rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px;">Presets</label>
+                <div class="speed-presets-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
+                    <button type="button" class="btn btn-outline btn-sm speed-preset-chip" onclick="setSpeedPreset(1.0)" style="padding: 4px 1px; font-size: 0.72rem;">1.0x</button>
+                    <button type="button" class="btn btn-outline btn-sm speed-preset-chip" onclick="setSpeedPreset(1.1)" style="padding: 4px 1px; font-size: 0.72rem;">1.1x</button>
+                    <button type="button" class="btn btn-outline btn-sm speed-preset-chip" onclick="setSpeedPreset(1.2)" style="padding: 4px 1px; font-size: 0.72rem;">1.2x</button>
+                    <button type="button" class="btn btn-outline btn-sm speed-preset-chip" onclick="setSpeedPreset(1.25)" style="padding: 4px 1px; font-size: 0.72rem;">1.25x</button>
+                    <button type="button" class="btn btn-outline btn-sm speed-preset-chip" onclick="setSpeedPreset(1.3)" style="padding: 4px 1px; font-size: 0.72rem;">1.3x</button>
+                    <button type="button" class="btn btn-outline btn-sm speed-preset-chip" onclick="setSpeedPreset(1.4)" style="padding: 4px 1px; font-size: 0.72rem;">1.4x</button>
+                    <button type="button" class="btn btn-outline btn-sm speed-preset-chip" onclick="setSpeedPreset(1.5)" style="padding: 4px 1px; font-size: 0.72rem;">1.5x</button>
+                    <button type="button" class="btn btn-outline btn-sm speed-preset-chip" onclick="setSpeedPreset(2.0)" style="padding: 4px 1px; font-size: 0.72rem;">2.0x</button>
+                </div>
+            </div>
+
+            <!-- Fine-tuning Slider -->
+            <div style="margin-bottom: 10px; background: var(--surface-secondary, rgba(15, 23, 42, 0.4)); border: 1px solid var(--border-color, #334155); border-radius: 6px; padding: 7px 9px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label for="speedSliderInput" style="font-size: 0.76rem; font-weight: 600; color: var(--text-primary); margin: 0;">Multiplier:</label>
+                    <span id="speedValueReadout" style="font-family: monospace; font-size: 1.05rem; font-weight: 700; color: #f59e0b;">1.20x</span>
+                </div>
+                <input type="range" id="speedSliderInput" min="0.5" max="2.0" step="0.05" value="1.2"
+                       style="width: 100%; cursor: pointer; accent-color: #f59e0b; margin: 0;"
+                       oninput="onSpeedSliderInput(this.value)">
+                <div style="display: flex; justify-content: space-between; font-size: 0.67rem; color: var(--text-secondary); margin-top: 2px;">
+                    <span>0.5x</span>
+                    <span>1.0x</span>
+                    <span>1.5x</span>
+                    <span>2.0x</span>
+                </div>
+            </div>
+
+            <!-- Instant Live Preview Button -->
+            <div style="margin-bottom: 10px;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="previewCurrentSpeedInPlayer()" style="width: 100%; padding: 5px 8px; font-size: 0.77rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 5px;">
+                    <span>▶ Preview in Player (<span id="previewSpeedBtnText">1.2x</span>)</span>
+                </button>
+            </div>
+
+            <!-- Options: Output Mode & Audio Pitch -->
+            <div style="margin-bottom: 10px; font-size: 0.75rem;">
+                <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px;">
+                    <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-primary);">
+                        <input type="radio" name="speedOutputMode" value="replace" checked style="accent-color: #f59e0b;">
+                        <span id="speedModeReplaceLabel">Apply to selected (Replace in place)</span>
+                    </label>
+                    <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-primary);">
+                        <input type="radio" name="speedOutputMode" value="new" style="accent-color: #f59e0b;">
+                        <span id="speedModeNewLabel">Save as new video file</span>
+                    </label>
+                </div>
+                <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text-secondary);">
+                    <input type="checkbox" id="speedPreservePitch" checked style="accent-color: #f59e0b;">
+                    <span>Maintain audio pitch (prevents chipmunk)</span>
+                </label>
+            </div>
+
+            <!-- Apply & Progress / Stop Action Area -->
+            <div id="speedActionsContainer">
+                <button type="button" id="btnConfirmSpeed" class="btn" onclick="executeSpeedChange()" style="width: 100%; padding: 9px; font-weight: 700; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                    <span>⚡ Apply Speed</span>
+                </button>
+            </div>
+
+            <!-- Processing Progress with Stop/Cancel Button -->
+            <div id="speedProgressWrap" style="display: none; margin-top: 10px; background: var(--surface-secondary, #0f172a); border: 1px solid var(--border-color, #334155); border-radius: 6px; padding: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span id="speedProgressMsg" style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">Processing...</span>
+                    <span id="speedProgressPct" style="font-family: monospace; font-size: 0.8rem; font-weight: 700; color: #f59e0b;">0%</span>
+                </div>
+                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+                    <div id="speedProgressBar" style="width: 0%; height: 100%; background: #f59e0b; transition: width 0.15s ease;"></div>
+                </div>
+                <button type="button" id="btnCancelSpeed" class="btn btn-outline btn-sm" onclick="cancelSpeedTask()" style="width: 100%; padding: 5px; font-size: 0.76rem; font-weight: 600; color: #ef4444; border-color: rgba(239, 68, 68, 0.4); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                    <span>⛔ Stop / Cancel Processing</span>
+                </button>
+            </div>
+
+            <div id="speedStatus" class="status-box" style="margin-top: 10px; display: none;"></div>
+        </div>
+
         <!-- File Details -->
         <div class="card tools-section" id="metaCard">
             <div class="card-title">File Details</div>

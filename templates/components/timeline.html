@@ -39,9 +39,14 @@
                             <span id="mergedTitleSpan" style="font-weight: 600; color: var(--text-primary); font-size: 1rem;">🎬 Merged Video</span>
                             <span id="mergedMetaBadge" style="font-size: 0.8rem; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: 600;">--</span>
                         </div>
-                        <a id="downloadMergedBtn" class="btn btn-success btn-sm" href="#" download style="padding: 8px 16px; text-decoration: none; font-weight: 600; width: auto;">
-                            ⬇ Download Merged Video
-                        </a>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button type="button" id="btnMergedSpeed" class="btn btn-outline btn-sm" onclick="openSpeedForMergedVideo()" style="padding: 8px 14px; font-weight: 600; width: auto; color: #f59e0b; border-color: rgba(245, 158, 11, 0.5); display: inline-flex; align-items: center; gap: 5px;" title="Adjust playback speed of this merged video">
+                                <span>⚡ Adjust Speed</span>
+                            </button>
+                            <a id="downloadMergedBtn" class="btn btn-success btn-sm" href="#" download style="padding: 8px 16px; text-decoration: none; font-weight: 600; width: auto;">
+                                ⬇ Download Merged Video
+                            </a>
+                        </div>
                     </div>
                     <div id="mergedVideoWrapper" class="merged-video-wrapper" style="max-width: 640px; aspect-ratio: 16/9; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
                         <video id="mergedVideoPlayer" controls style="width: 100%; height: 100%; object-fit: contain;"></video>

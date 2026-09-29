@@ -176,6 +176,8 @@ async function mergeClips(mode = 'merge', timelineId = null) {
 
         if (previewContainer) {
             previewContainer.style.display = 'block';
+            const tabMerged = document.getElementById('tabSpeedMerged');
+            if (tabMerged) tabMerged.style.display = 'inline-flex';
             previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
         

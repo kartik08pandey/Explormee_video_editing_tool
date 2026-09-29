@@ -12,6 +12,11 @@ from datetime import timedelta
 from flask import Flask, request, jsonify, render_template, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 
+# Ensure bundled bin directory (containing portable ffmpeg & ffprobe) is in PATH
+bin_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bin')
+if os.path.isdir(bin_dir) and bin_dir not in os.environ.get('PATH', ''):
+    os.environ['PATH'] = bin_dir + os.pathsep + os.environ.get('PATH', '')
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2 GB upload limit
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
@@ -1195,6 +1200,163 @@ def extract_audio():
     duration = metadata.get('duration') if metadata else None
     task_id = create_task('extract-audio', _do_extract_audio, session_dir, input_path, out_path, out_name, cmd, duration)
     return jsonify({'task_id': task_id, 'status': 'queued', 'message': 'Audio extraction task queued in background...'}), 202
+
+def _do_change_speed(session_dir, input_path, out_path, out_name, speed, mode='new', preserve_pitch=True, set_progress=None, register_proc=None):
+    """
+    Production-grade video speed adjustment (0.25x - 4.0x, focusing on 1.1x to 2.0x).
+    Uses setpts for smooth video re-timing and chained atempo filters for audio pitch preservation.
+    Handles silent videos gracefully and supports atomic in-place replacement or new file generation.
+    """
+    if set_progress:
+        set_progress(5, f"Initializing speed conversion ({speed}x)...")
+
+    metadata = get_video_metadata(input_path) or {}
+    duration = metadata.get('duration', 0.0)
+    has_audio = metadata.get('has_audio', False)
+    estimated_out_dur = (duration / speed) if (duration and duration > 0) else None
+
+    # Calculate video PTS multiplier (1.0 / speed)
+    pts_factor = round(1.0 / speed, 6)
+
+    # Use a unique temp file for encoding to ensure atomic operations
+    temp_name = f"speed_tmp_{uuid.uuid4().hex[:8]}.mp4"
+    temp_path = os.path.join(session_dir, temp_name)
+
+    # Build audio atempo filter chain (atempo supports 0.5 to 2.0 per instance)
+    if has_audio:
+        audio_filters = []
+        curr_spd = speed
+        while curr_spd > 2.0:
+            audio_filters.append("atempo=2.0")
+            curr_spd /= 2.0
+        while curr_spd < 0.5:
+            audio_filters.append("atempo=0.5")
+            curr_spd /= 0.5
+        audio_filters.append(f"atempo={round(curr_spd, 4)}")
+        atempo_str = ",".join(audio_filters)
+
+        filter_complex = f"[0:v]setpts={pts_factor}*(PTS-STARTPTS)[v];[0:a]{atempo_str}[a]"
+        cmd = [
+            'ffmpeg', '-y',
+            '-i', input_path,
+            '-filter_complex', filter_complex,
+            '-map', '[v]',
+            '-map', '[a]',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+            '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', '-b:a', '192k',
+            '-avoid_negative_ts', 'make_zero',
+            temp_path
+        ]
+    else:
+        cmd = [
+            'ffmpeg', '-y',
+            '-i', input_path,
+            '-filter:v', f"setpts={pts_factor}*(PTS-STARTPTS)",
+            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+            '-pix_fmt', 'yuv420p',
+            '-an',
+            '-avoid_negative_ts', 'make_zero',
+            temp_path
+        ]
+
+    try:
+        run_ffmpeg_command(cmd, total_duration=estimated_out_dur, set_progress=set_progress, register_proc=register_proc)
+    except Exception as e:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+        raise RuntimeError(f"Speed adjustment ({speed}x) failed: {e}")
+
+    # Move temp output to final destination
+    final_path = input_path if mode == 'replace' else out_path
+    final_name = os.path.basename(input_path) if mode == 'replace' else out_name
+
+    try:
+        os.replace(temp_path, final_path)
+    except Exception:
+        time.sleep(0.15)
+        try:
+            os.replace(temp_path, final_path)
+        except Exception as e:
+            if os.path.exists(temp_path):
+                try: os.remove(temp_path)
+                except OSError: pass
+            raise RuntimeError(f"Failed to finalize output file: {e}")
+
+    meta = get_video_metadata(final_path)
+    return {
+        'file': final_name,
+        'original_file': os.path.basename(input_path),
+        'mode': mode,
+        'speed': speed,
+        'metadata': meta
+    }
+
+@app.route('/change-speed', methods=['POST'])
+def change_speed():
+    data = request.json or {}
+    session_id = secure_filename(data.get('session_id', ''))
+    filename = secure_filename(data.get('filename', ''))
+    mode = data.get('mode', 'new')  # 'new' or 'replace'
+    preserve_pitch = bool(data.get('preserve_pitch', True))
+
+    try:
+        speed = float(data.get('speed', 1.0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid speed parameter'}), 400
+
+    if speed < 0.25 or speed > 4.0:
+        return jsonify({'error': 'Speed must be between 0.25x and 4.0x'}), 400
+
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"session_{session_id}")
+    if not os.path.exists(session_dir):
+        return jsonify({'error': 'Session not found'}), 404
+
+    input_path = os.path.join(session_dir, filename)
+    if not os.path.exists(input_path):
+        return jsonify({'error': f'Source file "{filename}" not found'}), 404
+
+    # Generate output name if 'new' mode
+    if mode == 'replace':
+        out_name = filename
+        out_path = input_path
+    else:
+        base, ext = os.path.splitext(filename)
+        # Strip any existing speed suffix like _1.2x
+        clean_base = re.sub(r'_\d+(\.\d+)?x$', '', base)
+        speed_str = f"{speed:.2f}".rstrip('0').rstrip('.')
+        candidate_name = f"{clean_base}_{speed_str}x{ext}"
+        counter = 1
+        while os.path.exists(os.path.join(session_dir, candidate_name)):
+            candidate_name = f"{clean_base}_{speed_str}x_{counter}{ext}"
+            counter += 1
+        out_name = candidate_name
+        out_path = os.path.join(session_dir, out_name)
+
+    task_id = create_task(
+        'change-speed',
+        _do_change_speed,
+        session_dir,
+        input_path,
+        out_path,
+        out_name,
+        speed,
+        mode,
+        preserve_pitch
+    )
+
+    return jsonify({
+        'task_id': task_id,
+        'status': 'queued',
+        'target_filename': out_name,
+        'mode': mode,
+        'speed': speed,
+        'message': f'Speed conversion to {speed}x queued in background...'
+    }), 202
+
 
 if __name__ == '__main__':
     print("\n--- Starting Local Video Editor ---")

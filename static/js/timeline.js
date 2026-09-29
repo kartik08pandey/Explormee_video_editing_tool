@@ -171,6 +171,8 @@
                 if (prog) prog.id = `clip-prog-${id}-${idx}`;
                 const splitBtn = card.querySelector('.clip-split-btn');
                 if (splitBtn) splitBtn.onclick = () => openSplitClipModal(fn, idx);
+                const speedBtn = card.querySelector('.clip-speed-btn');
+                if (speedBtn) speedBtn.onclick = () => openSpeedModal(fn, idx);
                 const playBtn = card.querySelector('.clip-play-btn');
                 if (playBtn) playBtn.onclick = () => playSoloClip(fn, idx);
             });
@@ -397,6 +399,11 @@
                                 <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
                                 <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
                                 <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
+                            </svg>
+                        </button>
+                        <button class="clip-speed-btn" onclick="openSpeedModal('${f}', ${idx})" title="Adjust Speed (⚡ 1.1x - 2.0x)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
                             </svg>
                         </button>
                         <button class="clip-duplicate-btn" onclick="duplicateTimelineClip(this, '${f}')" title="Duplicate this clip">
