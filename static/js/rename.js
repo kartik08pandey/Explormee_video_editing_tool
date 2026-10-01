@@ -1,186 +1,281 @@
 /* --- Clip Renaming Engine --- */
-    /* --- Clip Renaming Engine --- */
-    function startRenameClip(filename, idx) {
-        const displayRow = document.getElementById(`clip-name-display-${idx}`);
-        const renameBox = document.getElementById(`clip-rename-box-${idx}`);
-        const input = document.getElementById(`clip-rename-input-${idx}`);
-        if (!displayRow || !renameBox || !input) return;
-        
-        displayRow.style.display = 'none';
-        renameBox.style.display = 'block';
-        input.value = filename.replace(/\.mp4$/i, '');
-        input.focus();
-        input.select();
-    }
 
-    function cancelRenameClip(idx) {
-        const displayRow = document.getElementById(`clip-name-display-${idx}`);
-        const renameBox = document.getElementById(`clip-rename-box-${idx}`);
-        const errEl = document.getElementById(`clip-rename-err-${idx}`);
-        if (displayRow) displayRow.style.display = 'flex';
-        if (renameBox) renameBox.style.display = 'none';
-        if (errEl) errEl.style.display = 'none';
+function getClipCard(param1, param2, param3, param4) {
+    // 1. Direct HTMLElement or Event passed
+    if (param4 && param4.nodeType) return param4.closest('.timeline-clip-card');
+    if (param1 && typeof param1 === 'object') {
+        if (param1.nodeType) return param1.closest('.timeline-clip-card');
+        if (param1.target && param1.target.closest) return param1.target.closest('.timeline-clip-card');
     }
-
-    function handleRenameKey(e, oldFilename, idx) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            saveRenameClip(oldFilename, idx);
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            cancelRenameClip(idx);
+    // 2. Active event target
+    if (typeof window !== 'undefined' && window.event && window.event.target && window.event.target.closest) {
+        const cardFromEvent = window.event.target.closest('.timeline-clip-card');
+        if (cardFromEvent) return cardFromEvent;
+    }
+    // 3. By timelineId and index
+    if (param3 && param2 !== undefined && param2 !== null) {
+        const container = document.getElementById(`timelineContainer-${param3}`) || 
+                          document.querySelector(`[data-timeline-id="${param3}"]`);
+        if (container) {
+            const card = container.querySelector(`.timeline-clip-card[data-index="${param2}"]`);
+            if (card) return card;
         }
     }
+    // 4. By filename and index
+    if (typeof param1 === 'string' && param1) {
+        if (param2 !== undefined && param2 !== null && typeof param2 === 'number') {
+            const card = document.querySelector(`.timeline-clip-card[data-filename="${param1}"][data-index="${param2}"]`);
+            if (card) return card;
+        }
+        const card = document.querySelector(`.timeline-clip-card[data-filename="${param1}"]`);
+        if (card) return card;
+    }
+    // 5. By index only
+    if (typeof param2 === 'number') {
+        const card = document.querySelector(`.timeline-clip-card[data-index="${param2}"]`);
+        if (card) return card;
+    }
+    if (typeof param1 === 'number') {
+        const card = document.querySelector(`.timeline-clip-card[data-index="${param1}"]`);
+        if (card) return card;
+    }
+    return null;
+}
 
-    async function saveRenameClip(oldFilename, idx) {
-        if (!currentSession) return;
-        const input = document.getElementById(`clip-rename-input-${idx}`);
-        const errEl = document.getElementById(`clip-rename-err-${idx}`);
-        if (!input) return;
-        
-        let newName = input.value.trim();
-        if (!newName) {
-            if (errEl) { errEl.innerText = 'Name cannot be empty'; errEl.style.display = 'block'; }
-            return;
+function startRenameClip(filename, idx, timelineId, el) {
+    const card = getClipCard(filename, idx, timelineId, el);
+    
+    const displayRow = card ? card.querySelector('.clip-card-name-row') : document.getElementById(`clip-name-display-${idx}`);
+    const renameBox = card ? card.querySelector('.clip-rename-box') : document.getElementById(`clip-rename-box-${idx}`);
+    const input = card ? (card.querySelector('.clip-rename-box input[type="text"]') || card.querySelector('input[type="text"]')) 
+                       : document.getElementById(`clip-rename-input-${idx}`);
+    const errEl = card ? (card.querySelector('.clip-rename-err') || card.querySelector('.clip-rename-box > div:last-child')) 
+                       : document.getElementById(`clip-rename-err-${idx}`);
+
+    if (!displayRow || !renameBox || !input) return;
+
+    if (errEl) {
+        errEl.style.display = 'none';
+        errEl.innerText = '';
+    }
+    displayRow.style.display = 'none';
+    renameBox.style.display = 'block';
+
+    const currentFn = (card ? card.getAttribute('data-filename') : null) || (typeof filename === 'string' ? filename : '') || '';
+    input.value = currentFn.replace(/\.mp4$/i, '');
+    input.focus();
+    input.select();
+}
+
+function cancelRenameClip(idx, timelineId, el) {
+    const card = getClipCard(el, idx, timelineId, el);
+
+    const displayRow = card ? card.querySelector('.clip-card-name-row') : document.getElementById(`clip-name-display-${idx}`);
+    const renameBox = card ? card.querySelector('.clip-rename-box') : document.getElementById(`clip-rename-box-${idx}`);
+    const errEl = card ? (card.querySelector('.clip-rename-err') || card.querySelector('.clip-rename-box > div:last-child')) 
+                       : document.getElementById(`clip-rename-err-${idx}`);
+
+    if (displayRow) displayRow.style.display = 'flex';
+    if (renameBox) renameBox.style.display = 'none';
+    if (errEl) {
+        errEl.style.display = 'none';
+        errEl.innerText = '';
+    }
+}
+
+function handleRenameKey(e, oldFilename, idx, timelineId, el) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveRenameClip(oldFilename, idx, timelineId, el || e.target);
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelRenameClip(idx, timelineId, el || e.target);
+    }
+}
+
+async function saveRenameClip(oldFilename, idx, timelineId, el) {
+    if (!currentSession) return;
+    const card = getClipCard(oldFilename, idx, timelineId, el);
+
+    const input = card ? (card.querySelector('.clip-rename-box input[type="text"]') || card.querySelector('input[type="text"]')) 
+                       : document.getElementById(`clip-rename-input-${idx}`);
+    const errEl = card ? (card.querySelector('.clip-rename-err') || card.querySelector('.clip-rename-box > div:last-child')) 
+                       : document.getElementById(`clip-rename-err-${idx}`);
+    if (!input) return;
+
+    let newName = input.value.trim();
+    if (!newName) {
+        if (errEl) { 
+            errEl.innerText = 'Name cannot be empty'; 
+            errEl.style.display = 'block'; 
         }
-        if (!newName.toLowerCase().endsWith('.mp4')) {
-            newName += '.mp4';
-        }
-        
-        if (newName === oldFilename) {
-            cancelRenameClip(idx);
-            return;
-        }
-        
-        try {
-            const res = await fetch('/rename-clip', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: currentSession,
-                    old_name: oldFilename,
-                    new_name: newName
-                })
+        return;
+    }
+    if (!newName.toLowerCase().endsWith('.mp4')) {
+        newName += '.mp4';
+    }
+
+    const actualOldName = (card ? card.getAttribute('data-filename') : null) || (typeof oldFilename === 'string' ? oldFilename : '');
+    if (newName === actualOldName) {
+        cancelRenameClip(idx, timelineId, card);
+        return;
+    }
+
+    try {
+        const res = await fetch('/rename-clip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: currentSession,
+                old_name: actualOldName,
+                new_name: newName
+            })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Rename failed');
+
+        const confirmedName = data.new_name;
+
+        pushCurrentStateToUndo();
+
+        // 1. Update all matching timeline clip cards across all containers
+        const matchingCards = document.querySelectorAll(`.timeline-clip-card[data-filename="${actualOldName}"]`);
+        matchingCards.forEach(c => {
+            c.setAttribute('data-filename', confirmedName);
+
+            const nameText = c.querySelector('.clip-card-name');
+            if (nameText) {
+                nameText.innerText = `📹 ${confirmedName}`;
+                nameText.title = confirmedName;
+            }
+
+            const inputEl = c.querySelector('.clip-rename-box input[type="text"]') || c.querySelector('input[type="text"]');
+            if (inputEl) {
+                inputEl.value = confirmedName.replace(/\.mp4$/i, '');
+            }
+
+            const dlBtn = c.querySelector('.clip-download-btn');
+            if (dlBtn) {
+                dlBtn.href = `/download/${currentSession}/${confirmedName}`;
+                dlBtn.setAttribute('download', confirmedName);
+            }
+        });
+
+        // 2. Update in-memory references
+        if (typeof currentClips !== 'undefined' && currentClips && Array.isArray(currentClips)) {
+            currentClips.forEach(c => {
+                if (c.filename === actualOldName) {
+                    c.filename = confirmedName;
+                }
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Rename failed');
-            
-            const confirmedName = data.new_name;
-            
-            pushCurrentStateToUndo();
-
-            // 1. Update card DOM
-            const card = document.querySelector(`.timeline-clip-card[data-index="${idx}"]`);
-            if (card) {
-                card.setAttribute('data-filename', confirmedName);
-                
-                const nameText = document.getElementById(`clip-name-text-${idx}`);
-                if (nameText) {
-                    nameText.innerText = `📹 ${confirmedName}`;
-                    nameText.title = confirmedName;
-                    nameText.onclick = () => startRenameClip(confirmedName, idx);
-                }
-                
-                const renameBtn = card.querySelector('.clip-rename-btn');
-                if (renameBtn) renameBtn.onclick = () => startRenameClip(confirmedName, idx);
-                
-                const saveBtn = card.querySelector('.clip-save-btn');
-                if (saveBtn) saveBtn.onclick = () => saveRenameClip(confirmedName, idx);
-                
-                const inputEl = document.getElementById(`clip-rename-input-${idx}`);
-                if (inputEl) inputEl.onkeydown = (e) => handleRenameKey(e, confirmedName, idx);
-                
-                const dlBtn = card.querySelector('.clip-download-btn');
-                if (dlBtn) {
-                    dlBtn.href = `/download/${currentSession}/${confirmedName}`;
-                    dlBtn.setAttribute('download', confirmedName);
-                }
-                
-                const playBtn = card.querySelector('.clip-play-btn');
-                if (playBtn) playBtn.onclick = () => playSoloClip(confirmedName, idx);
-                
-                const reviewBtn = card.querySelector('.clip-review-btn');
-                if (reviewBtn) reviewBtn.onclick = () => openClipReviewByFilename(confirmedName);
-            }
-            
-            // 2. Update in-memory references
-            if (currentClips && Array.isArray(currentClips)) {
-                const found = currentClips.find(c => c.filename === oldFilename);
-                if (found) found.filename = confirmedName;
-            }
-            if (sequenceClips && Array.isArray(sequenceClips)) {
-                const foundSeq = sequenceClips.find(c => c.filename === oldFilename);
-                if (foundSeq) foundSeq.filename = confirmedName;
-            }
-            
-            cancelRenameClip(idx);
-            saveWorkspaceState();
-            
-        } catch (err) {
-            if (errEl) {
-                errEl.innerText = err.message;
-                errEl.style.display = 'block';
-            } else {
-                alert(err.message);
-            }
         }
-    }
-
-    async function renameCurrentModalClip() {
-        if (!currentSession || !currentClips || currentClips.length === 0) return;
-        const clip = currentClips[activeClipIndex];
-        if (!clip) return;
-        
-        const currentBase = clip.filename.replace(/\.mp4$/i, '');
-        const newNameInput = prompt('Enter new name for this clip:', currentBase);
-        if (!newNameInput) return;
-        
-        let newName = newNameInput.trim();
-        if (!newName) return;
-        if (!newName.toLowerCase().endsWith('.mp4')) newName += '.mp4';
-        if (newName === clip.filename) return;
-        
-        try {
-            const res = await fetch('/rename-clip', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: currentSession,
-                    old_name: clip.filename,
-                    new_name: newName
-                })
+        if (typeof sequenceClips !== 'undefined' && sequenceClips && Array.isArray(sequenceClips)) {
+            sequenceClips.forEach(c => {
+                if (c.filename === actualOldName) {
+                    c.filename = confirmedName;
+                }
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Rename failed');
-            
-            const oldName = clip.filename;
-            const confirmedName = data.new_name;
+        }
 
-            pushCurrentStateToUndo();
+        cancelRenameClip(idx, timelineId, card);
 
-            clip.filename = confirmedName;
-            
-            // Update timeline card if present
-            const card = document.querySelector(`.timeline-clip-card[data-filename="${oldName}"]`);
-            if (card) {
-                const idx = card.getAttribute('data-index');
-                card.setAttribute('data-filename', confirmedName);
-                const nameText = document.getElementById(`clip-name-text-${idx}`);
-                if (nameText) {
-                    nameText.innerText = `📹 ${confirmedName}`;
-                    nameText.title = confirmedName;
-                    nameText.onclick = () => startRenameClip(confirmedName, idx);
-                }
-                const dlBtn = card.querySelector('.clip-download-btn');
-                if (dlBtn) {
-                    dlBtn.href = `/download/${currentSession}/${confirmedName}`;
-                    dlBtn.setAttribute('download', confirmedName);
-                }
-            }
-            
-            renderModalClip();
+        // Re-synchronize indices and event bindings across all timeline containers
+        if (typeof updateTimelineIndices === 'function') {
+            updateTimelineIndices();
+        }
+
+        if (typeof saveWorkspaceState === 'function') {
             saveWorkspaceState();
-        } catch (err) {
+        }
+
+    } catch (err) {
+        if (errEl) {
+            errEl.innerText = err.message;
+            errEl.style.display = 'block';
+        } else {
             alert(err.message);
         }
     }
+}
+
+async function renameCurrentModalClip() {
+    if (!currentSession || !currentClips || currentClips.length === 0) return;
+    const clip = currentClips[activeClipIndex];
+    if (!clip) return;
+
+    const currentBase = clip.filename.replace(/\.mp4$/i, '');
+    const newNameInput = prompt('Enter new name for this clip:', currentBase);
+    if (!newNameInput) return;
+
+    let newName = newNameInput.trim();
+    if (!newName) return;
+    if (!newName.toLowerCase().endsWith('.mp4')) newName += '.mp4';
+    if (newName === clip.filename) return;
+
+    try {
+        const res = await fetch('/rename-clip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: currentSession,
+                old_name: clip.filename,
+                new_name: newName
+            })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Rename failed');
+
+        const oldName = clip.filename;
+        const confirmedName = data.new_name;
+
+        pushCurrentStateToUndo();
+
+        clip.filename = confirmedName;
+
+        // Update all in-memory arrays
+        if (typeof currentClips !== 'undefined' && currentClips && Array.isArray(currentClips)) {
+            currentClips.forEach(c => {
+                if (c.filename === oldName) c.filename = confirmedName;
+            });
+        }
+        if (typeof sequenceClips !== 'undefined' && sequenceClips && Array.isArray(sequenceClips)) {
+            sequenceClips.forEach(c => {
+                if (c.filename === oldName) c.filename = confirmedName;
+            });
+        }
+
+        // Update timeline cards
+        const matchingCards = document.querySelectorAll(`.timeline-clip-card[data-filename="${oldName}"]`);
+        matchingCards.forEach(card => {
+            card.setAttribute('data-filename', confirmedName);
+            const nameText = card.querySelector('.clip-card-name');
+            if (nameText) {
+                nameText.innerText = `📹 ${confirmedName}`;
+                nameText.title = confirmedName;
+            }
+            const inputEl = card.querySelector('.clip-rename-box input[type="text"]') || card.querySelector('input[type="text"]');
+            if (inputEl) {
+                inputEl.value = confirmedName.replace(/\.mp4$/i, '');
+            }
+            const dlBtn = card.querySelector('.clip-download-btn');
+            if (dlBtn) {
+                dlBtn.href = `/download/${currentSession}/${confirmedName}`;
+                dlBtn.setAttribute('download', confirmedName);
+            }
+        });
+
+        if (typeof updateTimelineIndices === 'function') {
+            updateTimelineIndices();
+        }
+
+        if (typeof renderModalClip === 'function') {
+            renderModalClip();
+        }
+
+        if (typeof saveWorkspaceState === 'function') {
+            saveWorkspaceState();
+        }
+    } catch (err) {
+        alert(err.message);
+    }
+}

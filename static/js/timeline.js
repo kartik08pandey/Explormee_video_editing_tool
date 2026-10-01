@@ -150,21 +150,21 @@
                 const nameText = card.querySelector('.clip-card-name');
                 if (nameText) {
                     nameText.id = `clip-name-text-${id}-${idx}`;
-                    nameText.onclick = () => startRenameClip(fn, idx);
+                    nameText.onclick = (e) => startRenameClip(fn, idx, id, card);
                 }
                 const renameBtn = card.querySelector('.clip-rename-btn');
-                if (renameBtn) renameBtn.onclick = () => startRenameClip(fn, idx);
+                if (renameBtn) renameBtn.onclick = (e) => startRenameClip(fn, idx, id, card);
                 const renameBox = card.querySelector('.clip-rename-box');
                 if (renameBox) renameBox.id = `clip-rename-box-${id}-${idx}`;
                 const renameInput = card.querySelector('input[type="text"]');
                 if (renameInput) {
                     renameInput.id = `clip-rename-input-${id}-${idx}`;
-                    renameInput.onkeydown = (e) => handleRenameKey(e, fn, idx);
+                    renameInput.onkeydown = (e) => handleRenameKey(e, fn, idx, id, card);
                 }
                 const saveBtn = card.querySelector('.clip-save-btn');
-                if (saveBtn) saveBtn.onclick = () => saveRenameClip(fn, idx);
-                const cancelBtn = card.querySelector('.clip-rename-box .btn-outline');
-                if (cancelBtn) cancelBtn.onclick = () => cancelRenameClip(idx);
+                if (saveBtn) saveBtn.onclick = () => saveRenameClip(fn, idx, id, card);
+                const cancelBtn = card.querySelector('.clip-rename-box .btn-outline, .clip-rename-box .clip-cancel-btn');
+                if (cancelBtn) cancelBtn.onclick = () => cancelRenameClip(idx, id, card);
                 const errDiv = card.querySelector('.clip-rename-box > div:last-child');
                 if (errDiv) errDiv.id = `clip-rename-err-${id}-${idx}`;
                 const prog = card.querySelector('.clip-progress-bar');
@@ -423,16 +423,16 @@
                 <div class="clip-range-badge" id="clip-range-${idx}" style="font-size:0.71rem; font-weight:600; font-family:monospace; color:#1d4ed8; background:#eff6ff; padding:2px 6px; border-radius:4px; margin:4px 0 2px 0; border:1px solid #bfdbfe; text-align:center; ${detail.range_label ? '' : 'display:none;'}">📍 ${detail.range_label || ''}</div>
                 <div class="clip-card-body">
                     <div class="clip-card-name-row" id="clip-name-display-${idx}" style="display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 4px;">
-                        <div class="clip-card-name" id="clip-name-text-${idx}" title="${f}" style="cursor: pointer; font-weight: 500; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" onclick="startRenameClip('${f}', ${idx})">📹 ${f}</div>
-                        <button class="clip-rename-btn" onclick="startRenameClip('${f}', ${idx})" title="Rename this clip" style="background: none; border: none; cursor: pointer; font-size: 0.8rem; padding: 2px 4px; color: var(--text-secondary); border-radius: 4px; line-height: 1;">✏️</button>
+                        <div class="clip-card-name" id="clip-name-text-${idx}" title="${f}" style="cursor: pointer; font-weight: 500; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" onclick="startRenameClip('${f}', ${idx}, null, this)">📹 ${f}</div>
+                        <button class="clip-rename-btn" onclick="startRenameClip('${f}', ${idx}, null, this)" title="Rename this clip" style="background: none; border: none; cursor: pointer; font-size: 0.8rem; padding: 2px 4px; color: var(--text-secondary); border-radius: 4px; line-height: 1;">✏️</button>
                     </div>
                     <div class="clip-rename-box" id="clip-rename-box-${idx}" style="display: none; margin-bottom: 6px;">
                         <div style="display: flex; align-items: center; gap: 3px;">
-                            <input type="text" id="clip-rename-input-${idx}" value="${f.replace(/\.mp4$/i, '')}" style="width: 100%; min-width: 0; padding: 3px 5px; font-size: 0.78rem; border: 1px solid var(--accent-color); border-radius: 4px; outline: none;" onkeydown="handleRenameKey(event, '${f}', ${idx})">
-                            <button class="btn btn-sm btn-success clip-save-btn" onclick="saveRenameClip('${f}', ${idx})" style="padding: 3px 6px; font-size: 0.72rem; width: auto; line-height: 1;" title="Save name">✔</button>
-                            <button class="btn btn-sm btn-outline" onclick="cancelRenameClip(${idx})" style="padding: 3px 6px; font-size: 0.72rem; width: auto; line-height: 1;" title="Cancel">✖</button>
+                            <input type="text" id="clip-rename-input-${idx}" class="clip-rename-input" value="${f.replace(/\.mp4$/i, '')}" style="width: 100%; min-width: 0; padding: 3px 5px; font-size: 0.78rem; border: 1px solid var(--accent-color); border-radius: 4px; outline: none;" onkeydown="handleRenameKey(event, '${f}', ${idx}, null, this)">
+                            <button class="btn btn-sm btn-success clip-save-btn" onclick="saveRenameClip('${f}', ${idx}, null, this)" style="padding: 3px 6px; font-size: 0.72rem; width: auto; line-height: 1;" title="Save name">✔</button>
+                            <button class="btn btn-sm btn-outline clip-cancel-btn" onclick="cancelRenameClip(${idx}, null, this)" style="padding: 3px 6px; font-size: 0.72rem; width: auto; line-height: 1;" title="Cancel">✖</button>
                         </div>
-                        <div id="clip-rename-err-${idx}" style="display: none; font-size: 0.7rem; color: var(--error-color); margin-top: 2px;"></div>
+                        <div id="clip-rename-err-${idx}" class="clip-rename-err" style="display: none; font-size: 0.7rem; color: var(--error-color); margin-top: 2px;"></div>
                     </div>
                     <div class="clip-progress-container">
                         <div class="clip-progress-bar" id="clip-prog-${idx}"></div>
@@ -448,6 +448,7 @@
         if (!currentSession) return;
         const card = btn.closest('.timeline-clip-card');
         if (!card) return;
+        const actualFilename = card.getAttribute('data-filename') || filename;
         const container = card.closest('.timeline-container');
         const timelineId = container ? container.getAttribute('data-timeline-id') : null;
 
@@ -459,7 +460,7 @@
             const res = await fetch('/duplicate-clip', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session_id: currentSession, filename: filename })
+                body: JSON.stringify({ session_id: currentSession, filename: actualFilename })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Duplication failed');
@@ -467,7 +468,7 @@
             pushCurrentStateToUndo();
 
             const newFilename = data.new_filename;
-            const origDetail = currentClips.find(c => c.filename === filename) || {};
+            const origDetail = currentClips.find(c => c.filename === actualFilename) || {};
             const meta = data.metadata || {};
 
             const newDetail = {
@@ -550,6 +551,7 @@
 
         const card = btn.closest('.timeline-clip-card');
         if (!card) return;
+        const actualFilename = card.getAttribute('data-filename') || filename;
         const container = card.closest('.timeline-container');
         const timelineId = container ? container.getAttribute('data-timeline-id') : null;
 
@@ -564,7 +566,7 @@
 
             // 1. Remove from in-memory currentClips array
             if (currentClips && Array.isArray(currentClips)) {
-                currentClips = currentClips.filter(c => c.filename !== filename);
+                currentClips = currentClips.filter(c => c.filename !== actualFilename);
             }
 
             // 2. Re-index remaining cards (#1, #2, ...) & update shift button states
